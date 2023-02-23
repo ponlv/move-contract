@@ -7,6 +7,9 @@ module shoshin::Nfts{
     use std::vector;
     use sui::object::{Self,ID,UID};
     use sui::url::{Self,Url};
+    use sui::coin::{Self,Coin};
+    use sui::sui::SUI;
+    use sui::balance::{Self,Balance};
    
    //constant
    const EAdminOnly:u64 = 0;
@@ -15,6 +18,8 @@ module shoshin::Nfts{
    const ERoundWasEnded:u64 = 3;
    const ESenderNotInWhiteList:u64 = 4;
    const ERoundNotExist:u64 = 5;
+   const EMaximumMint:u64 = 6;
+   const ENotValidCoinAmount:u64 = 7; 
    
 
     struct Admin has key {
@@ -36,7 +41,14 @@ module shoshin::Nfts{
         end_time: u64,
         limited_token: u32,
         white_list: vector<address>,
-        is_start: u8
+        is_start: u8,
+        fee_for_mint: u64,
+        allNfts: vector<UserNftsInRound>
+    }
+
+    struct UserNftsInRound has store,drop {
+        user_address: address,
+        total_minted: u64,
     }
 
     struct RoundData has store,drop,copy {
@@ -44,7 +56,8 @@ module shoshin::Nfts{
         start_time: u64,
         end_time: u64,
         limited_token: u32,
-        white_list: vector<address>
+        white_list: vector<address>,
+        fee_for_mint: u64
     }
 
     struct CreateRoundEvent has copy,drop {
@@ -61,7 +74,7 @@ module shoshin::Nfts{
         description: String,
         owner: address,
         round_id: ID,
-        url: Url
+        url: Url,
     }
 
     struct NftData has copy,drop {
@@ -110,7 +123,9 @@ module shoshin::Nfts{
             end_time: data.end_time,
             limited_token: data.limited_token,
             white_list: data.white_list,
-            is_start: 0
+            is_start: 0,
+            fee_for_mint: data.fee_for_mint,
+            allNfts: vector::empty()
         };
 
         //emit event
@@ -161,8 +176,8 @@ module shoshin::Nfts{
         while(i < length){
              let current_round = vector::borrow_mut(rounds, i);
              if(object::uid_to_inner(&current_round.id) == round_id){
-                assert!(current_time >= current_round.start_time, ERoundDidNotStartedYet);
-                assert!(current_time < current_round.end_time, ERoundWasEnded);
+             assert!(current_time >= current_round.start_time, ERoundDidNotStartedYet);
+             assert!(current_time < current_round.end_time, ERoundWasEnded);
                 if (current_round.is_start == 1) {
                     current_round.is_start = 0;
                 }else{
@@ -174,30 +189,40 @@ module shoshin::Nfts{
     }
 
 
-    entry fun buy_nft_by_round(ctx:&mut TxContext, nftData: NftData, round_id: ID, allRounds:&mut AllRounds, url:vector<u8>) {
+    entry fun buy_nft_by_round(ctx:&mut TxContext, admin:&mut Admin, allRounds:&mut AllRounds, url:vector<u8>,  current_time: u64, coin:&mut Coin<SUI>, nftData: NftData, round_id: ID,) {
         let sender = sender(ctx);
 
         let rounds =&mut allRounds.rounds;
         let length = vector::length(rounds);
+       
 
         //check if user is in the whitelist of the round
         let i = 0;
         while(i < length){
-            let current_round = vector::borrow_mut(rounds,i);  
+            let current_round = vector::borrow_mut(rounds,i);
+            assert!(current_time >= current_round.start_time, ERoundDidNotStartedYet);
+            assert!(current_time < current_round.end_time, ERoundWasEnded);
             //check if round is exists on global storage
             if(object::uid_to_inner(&current_round.id) == round_id){
             let current_round_whitelist =&mut current_round.white_list;
+            let current_round_allNfts = &mut current_round.allNfts;
+            let current_round_mint_fee = current_round.fee_for_mint;
             let index = 0;
             while(index < vector::length(current_round_whitelist)) {
                 let address_in_list = vector::borrow(current_round_whitelist,index);
-                if(address_in_list == &sender){
+                if(address_in_list != &sender){
+                    let index_nft = 0;
+                    while(index < vector::length(current_round_allNfts)) {
+                    let address_in_list = vector::borrow(current_round_allNfts,index_nft);
+                    if(address_in_list.user_address != sender){
+                    assert!(coin::value(coin) >= current_round_mint_fee,ENotValidCoinAmount);
                     let new_nft = Nft{
                     id: object::new(ctx),
                     name: nftData.name,
                     description: nftData.description,
                     owner: sender,
                     round_id: nftData.round_id,
-                    url: url::new_unsafe_from_bytes(url)
+                    url: url::new_unsafe_from_bytes(url),
                     };
 
                     event::emit(MintNft{
@@ -206,9 +231,41 @@ module shoshin::Nfts{
                         round_id: nftData.round_id,
                     });
 
+                     //tranfer mint fee to admin address
+                    let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
+                    transfer::transfer(coin::from_balance(mint_balance,ctx), admin.address);
                     //tranfer new nft to the sender address
                     transfer::transfer(new_nft,sender);
+                   
+                
+                    
+                    }else{
+                         //the maximum tokens can be minted by user in each round = 2
+                        assert!(address_in_list.total_minted < 2,EMaximumMint);
+                        assert!(coin::value(coin) >= current_round_mint_fee,ENotValidCoinAmount);
+                        let new_nft = Nft{
+                        id: object::new(ctx),
+                        name: nftData.name,
+                        description: nftData.description,
+                        owner: sender,
+                        round_id: nftData.round_id,
+                        url: url::new_unsafe_from_bytes(url),
+                        };
 
+                        event::emit(MintNft{
+                            nft_id: object::uid_to_inner(&new_nft.id),
+                            owner: sender,
+                            round_id: nftData.round_id,
+                        });
+
+                        //tranfer mint fee to admin address
+                        let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
+                        transfer::transfer(coin::from_balance(mint_balance,ctx), admin.address);
+                        //tranfer new nft to the sender address
+                        transfer::transfer(new_nft,sender);
+                    };
+                    index_nft = index_nft+1;
+                    }
                 }else{
                     if(index == vector::length(current_round_whitelist)-1){
                         //abort that sender was not in round's white_list
@@ -226,7 +283,4 @@ module shoshin::Nfts{
         i=i+1;
         }    
     }
-
-
-
 }
