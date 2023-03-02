@@ -214,12 +214,14 @@ module shoshin::Nfts{
             let current_round_mint_fee = current_round.fee_for_mint;
             let index = 0;
             while(index < vector::length(current_round_whitelist)) {
-                let address_in_list = vector::borrow(current_round_whitelist,index);
-                if(address_in_list != &sender){
+                let address_in_whitelist = vector::borrow(current_round_whitelist,index);
+                //check if sender in whilelist
+                if(address_in_whitelist != &sender){
                 let index_nft = 0;
                 while(index < vector::length(current_round_allNfts)) {
-                let address_in_list = vector::borrow(current_round_allNfts,index_nft);
-                if(address_in_list.user_address != sender){
+                let address_in_list = vector::borrow_mut(current_round_allNfts,index_nft);
+                //check if sender have minted nft in current round
+                if(address_in_list.user_address != sender) {
                     assert!(coin::value(coin) >= current_round_mint_fee,ENotValidCoinAmount);
                     let new_nft = Nft{
                     id: object::new(ctx),
@@ -237,6 +239,11 @@ module shoshin::Nfts{
                      //tranfer mint fee to admin address
                     let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
                     transfer::transfer(coin::from_balance(mint_balance,ctx), admin.address);
+                    //add user's minted nft to `allNfts` in current round 
+                    vector::push_back(current_round_allNfts,UserNftsInRound{
+                        user_address: sender,
+                        total_minted: 1
+                    });
                     //tranfer new nft to the sender address
                     transfer::transfer(new_nft,sender);
                 }
@@ -260,6 +267,8 @@ module shoshin::Nfts{
                     //tranfer mint fee to admin address
                     let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
                     transfer::transfer(coin::from_balance(mint_balance,ctx), admin.address);
+                    //update total of user's minted nft in current round 
+                    address_in_list.total_minted = address_in_list.total_minted + 1; 
                     //tranfer new nft to the sender address
                     transfer::transfer(new_nft,sender);
                 };
