@@ -95,7 +95,7 @@ module shoshin::Nfts{
     entry fun create_new_round(
         admin:&mut Admin, 
         allRounds:&mut AllRounds, 
-        round_name: vector<vector<u8>>,
+        round_name: vector<u8>,
         start_time: u64,
         end_time: u64,
         limited_token: u32,
@@ -108,7 +108,7 @@ module shoshin::Nfts{
 
         let round = Round{
             id: object::new(ctx),
-            round_name: string::utf8(vector::pop_back(&mut round_name)),
+            round_name: string::utf8(round_name),
             start_time: start_time,
             end_time: end_time,
             limited_token: limited_token,
@@ -172,7 +172,9 @@ module shoshin::Nfts{
             let current_round = vector::borrow_mut(rounds, i);
             if(object::uid_to_inner(&current_round.id) == round_id){
             assert!(current_time >= current_round.start_time, ERoundDidNotStartedYet);
-            assert!(current_time < current_round.end_time, ERoundWasEnded);
+            if(current_time >=  current_round.end_time){
+                abort(ERoundWasEnded)
+            };
             if (current_round.is_start == 1) {
                 current_round.is_start = 0;
             }else{
@@ -189,9 +191,9 @@ module shoshin::Nfts{
         allRounds:&mut AllRounds, 
         url: vector<u8>,  
         current_time: u64, 
-        coin:&mut Coin<SUI>, 
-        nft_name: vector<vector<u8>>,
-        nft_description: vector<vector<u8>>,
+        coin:&mut Coin<SUI>,
+        nft_name: vector<u8>,
+        nft_description: vector<u8>,
         round_id: ID, 
         ctx:&mut TxContext) {
         let sender = sender(ctx);
@@ -202,7 +204,9 @@ module shoshin::Nfts{
         while(i < length){
             let current_round = vector::borrow_mut(rounds,i);
             assert!(current_time >= current_round.start_time, ERoundDidNotStartedYet);
-            assert!(current_time < current_round.end_time, ERoundWasEnded);
+           if(current_time >=  current_round.end_time){
+                abort(ERoundWasEnded)
+            };
             //check if round is exists on global storage
             if(object::uid_to_inner(&current_round.id) == round_id){
             let current_round_whitelist =&mut current_round.white_list;
@@ -221,8 +225,8 @@ module shoshin::Nfts{
                     assert!(coin::value(coin) >= current_round_mint_fee,ENotValidCoinAmount);
                     let new_nft = Nft{
                     id: object::new(ctx),
-                    name: string::utf8(vector::pop_back(&mut nft_name)),
-                    description: string::utf8(vector::pop_back(&mut nft_description)),
+                    name: string::utf8(nft_name),
+                    description: string::utf8(nft_description),
                     owner: sender,
                     round_id: round_id,
                     url: url::new_unsafe_from_bytes(url),
@@ -249,8 +253,8 @@ module shoshin::Nfts{
                     assert!(coin::value(coin) >= current_round_mint_fee,ENotValidCoinAmount);
                     let new_nft = Nft{
                     id: object::new(ctx),
-                    name: string::utf8(vector::pop_back(&mut nft_name)),
-                    description: string::utf8(vector::pop_back(&mut nft_description)),
+                    name: string::utf8(nft_name),
+                    description: string::utf8(nft_description),
                     owner: sender,
                     round_id: round_id,
                     url: url::new_unsafe_from_bytes(url),
