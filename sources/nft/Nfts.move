@@ -228,11 +228,13 @@ module shoshin::Nfts{
         let current_round_mint_fee = current_round.fee_for_mint;
 
         let index = 0;
+        let in_whitelist = false;
         while (index < vector::length(&current_round_whitelist)) {
             let address_in_whitelist = vector::borrow(&current_round_whitelist,index);
             //check if sender in whilelist
             if(address_in_whitelist == &sender) {
-
+                
+                in_whitelist = true;
                 let sender_index_in_whitelist = 0;
                 let is_exist = false;
 
@@ -290,15 +292,13 @@ module shoshin::Nfts{
                 let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
                 transfer::transfer(coin::from_balance(mint_balance,ctx), admin.address);
                 transfer::transfer(new_nft,sender);
-            } else {
-
-                if(index == vector::length(&current_round_whitelist) - 1) {
-                    //abort that sender was not in round's white_list
-                    abort(ESenderNotInWhiteList)
-                }
-            };
+            }
 
             index = index + 1;
         }; 
+
+        if (in_whitelist == false) {
+            abort(ESenderNotInWhiteList);
+        }
     }
 }
