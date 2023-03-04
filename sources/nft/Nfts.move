@@ -223,14 +223,13 @@ module shoshin::Nfts{
             abort(ERoundWasEnded)
         };
 
-        let current_round_whitelist =&mut current_round.white_list;
+        let current_round_whitelist = current_round.white_list;
         let current_round_allNfts = &mut current_round.allNfts;
         let current_round_mint_fee = current_round.fee_for_mint;
 
         let index = 0;
-        while (index < vector::length(current_round_whitelist)) {
-            let address_in_whitelist = vector::borrow(current_round_whitelist,index);
-
+        while (index < vector::length(&current_round_whitelist)) {
+            let address_in_whitelist = vector::borrow(&current_round_whitelist,index);
             //check if sender in whilelist
             if(address_in_whitelist == &sender) {
 
@@ -246,10 +245,10 @@ module shoshin::Nfts{
                     if (address_in_list.user_address == sender) {
                         sender_index_in_whitelist = index;
                         is_exist = true;
-                    }
+                    };
 
                     index_nft = index_nft + 1;
-                }
+                };
 
                 // check balance of sender
                 assert!(coin::value(coin) >= current_round_mint_fee,ENotValidCoinAmount); 
@@ -269,7 +268,7 @@ module shoshin::Nfts{
                         user_address: sender,
                         total_minted: 1
                     });
-                }
+                };
 
                 // create nft object
                 let new_nft = Nft{
@@ -277,7 +276,7 @@ module shoshin::Nfts{
                     name: string::utf8(nft_name),
                     description: string::utf8(nft_description),
                     owner: sender,
-                    round_id: round_id,
+                    round_id: object::uid_to_inner(&current_round.id),
                     url: url::new_unsafe_from_bytes(url),
                 };
                 
@@ -285,7 +284,7 @@ module shoshin::Nfts{
                 event::emit(MintNft{
                     nft_id: object::uid_to_inner(&new_nft.id),
                     owner: sender,
-                    round_id: round_id,
+                    round_id: object::uid_to_inner(&current_round.id),
                 });
 
                 let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
@@ -293,7 +292,7 @@ module shoshin::Nfts{
                 transfer::transfer(new_nft,sender);
             } else {
 
-                if(index == vector::length(current_round_whitelist) - 1) {
+                if(index == vector::length(&current_round_whitelist) - 1) {
                     //abort that sender was not in round's white_list
                     abort(ESenderNotInWhiteList)
                 }
