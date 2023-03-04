@@ -229,10 +229,10 @@ module shoshin::Nfts{
 
         let index = 0;
         while (index < vector::length(current_round_whitelist)) {
-            let address_in_whitelist = vector::borrow(current_round_whitelist,index);
+            let address_in_whitelist = vector::borrow_mut(current_round_whitelist,index);
 
             //check if sender in whilelist
-            if(address_in_whitelist == &sender) {
+            if(*address_in_whitelist == sender) {
 
                 let sender_index_in_whitelist = 0;
                 let is_exist = false;
