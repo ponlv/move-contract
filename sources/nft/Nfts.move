@@ -200,7 +200,7 @@ module shoshin::Nfts{
         }  
     }
 
-    
+
     entry fun buy_nft(
         admin:&mut Admin, 
         allRounds:&mut AllRounds, 
@@ -259,7 +259,7 @@ module shoshin::Nfts{
                     let sender_nft_stat = vector::borrow_mut(current_round_allNfts, sender_index_in_whitelist);
                     
                     // maximum nft sender can mint perround is 2
-                    assert!(address_in_list.total_minted < 2,EMaximumMint);
+                    assert!(sender_nft_stat.total_minted < 2,EMaximumMint);
                     
                     // increase total mint of sender
                     sender_nft_stat.total_minted = sender_nft_stat.total_minted + 1;
