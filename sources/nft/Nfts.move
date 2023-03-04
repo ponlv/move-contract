@@ -137,19 +137,30 @@ module shoshin::Nfts{
         current_time: u64, 
         new_whitelist: vector<address>, 
         ctx:&mut TxContext) {
+        
         let sender = sender(ctx);
+
+        // check sender is admin
         assert!(admin.address == sender,EAdminOnly);
-        //check the current Rounds was save on global    
+
         let rounds = &mut allRounds.rounds;
         let length = vector::length(rounds);
         let i = 0;
+
         while(i < length){
             let current_round = vector::borrow_mut(rounds, i);
             let current_round_id = object::uid_to_inner(&current_round.id);
+
             if(current_round_id == round_id){
-            assert!(current_time < current_round.start_time, ERoundWasStarted);
-            let current_round_whitelist =&mut current_round.white_list;
-            vector::append(current_round_whitelist,new_whitelist); 
+
+                // check current_time with round time
+                assert!(current_time < current_round.start_time, ERoundWasStarted);
+
+                // get round whitelist
+                let current_round_whitelist =&mut current_round.white_list;
+
+                // append new whitelist
+                vector::append(current_round_whitelist,new_whitelist); 
             };
             i = i+1;
         }  
@@ -170,16 +181,20 @@ module shoshin::Nfts{
         let i = 0;
         while(i < length){
             let current_round = vector::borrow_mut(rounds, i);
-            if(object::uid_to_inner(&current_round.id) == round_id){
-            assert!(current_time >= current_round.start_time, ERoundDidNotStartedYet);
-            if(current_time >=  current_round.end_time){
-                abort(ERoundWasEnded)
-            };
-            if (current_round.is_start == 1) {
-                current_round.is_start = 0;
-            }else{
-                current_round.is_start = 1;
-            }
+
+            if(object::uid_to_inner(&current_round.id) == round_id) { 
+ 
+                assert!(current_time >= current_round.start_time, ERoundDidNotStartedYet);
+                
+                if (current_time >= current_round.end_time) {
+                    abort(ERoundWasEnded)
+                };
+
+                if (current_round.is_start == 1) {
+                    current_round.is_start = 0;
+                } else {
+                    current_round.is_start = 1;
+                }
             };
             i = i+1;
         }  
@@ -199,97 +214,124 @@ module shoshin::Nfts{
         let sender = sender(ctx);
         let rounds = &mut allRounds.rounds;
         let length = vector::length(rounds);
+
         //check if user is in the whitelist of the round
         let i = 0;
-        while(i < length){
+        while(i < length) {
+
+            // get round by id
             let current_round = vector::borrow_mut(rounds,i);
+
             assert!(current_time >= current_round.start_time, ERoundDidNotStartedYet);
-           if(current_time >=  current_round.end_time){
+
+            if (current_time >=  current_round.end_time) {
                 abort(ERoundWasEnded)
             };
+
             //check if round is exists on global storage
-            if(object::uid_to_inner(&current_round.id) == round_id){
-            let current_round_whitelist =&mut current_round.white_list;
-            let current_round_allNfts = &mut current_round.allNfts;
-            let current_round_mint_fee = current_round.fee_for_mint;
-            let index = 0;
-            while(index < vector::length(current_round_whitelist)) {
-                let address_in_whitelist = vector::borrow(current_round_whitelist,index);
-                //check if sender in whilelist
-                if(address_in_whitelist != &sender){
-                let index_nft = 0;
-                while(index < vector::length(current_round_allNfts)) {
-                let address_in_list = vector::borrow_mut(current_round_allNfts,index_nft);
-                //check if sender have minted nft in current round
-                if(address_in_list.user_address != sender) {
-                    assert!(coin::value(coin) >= current_round_mint_fee,ENotValidCoinAmount);
-                    let new_nft = Nft{
-                    id: object::new(ctx),
-                    name: string::utf8(nft_name),
-                    description: string::utf8(nft_description),
-                    owner: sender,
-                    round_id: round_id,
-                    url: url::new_unsafe_from_bytes(url),
+            if (object::uid_to_inner(&current_round.id) == round_id) {
+
+                let current_round_whitelist =&mut current_round.white_list;
+                let current_round_allNfts = &mut current_round.allNfts;
+                let current_round_mint_fee = current_round.fee_for_mint;
+                let index = 0;
+
+                while(index < vector::length(current_round_whitelist)) {
+                    let address_in_whitelist = vector::borrow(current_round_whitelist,index);
+                    //check if sender in whilelist
+                    if(address_in_whitelist != &sender) {
+                        let index_nft = 0;
+
+                        while(index < vector::length(current_round_allNfts)) {
+
+                            let address_in_list = vector::borrow_mut(current_round_allNfts,index_nft);
+                            
+                            //check if sender have minted nft in current round
+                            if(address_in_list.user_address != sender) {
+
+                                assert!(coin::value(coin) >= current_round_mint_fee,ENotValidCoinAmount);
+
+                                // create new NFT object
+                                let new_nft = Nft{
+                                    id: object::new(ctx),
+                                    name: string::utf8(nft_name),
+                                    description: string::utf8(nft_description),
+                                    owner: sender,
+                                    round_id: round_id,
+                                    url: url::new_unsafe_from_bytes(url),
+                                };
+
+                                // emit event mint NFT
+                                event::emit(MintNft{
+                                    nft_id: object::uid_to_inner(&new_nft.id),
+                                    owner: sender,
+                                    round_id: round_id,
+                                });
+
+                                //tranfer mint fee to admin address
+                                let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
+                                transfer::transfer(coin::from_balance(mint_balance,ctx), admin.address);
+                                
+                                //add user's minted nft to `allNfts` in current round 
+                                vector::push_back(current_round_allNfts,UserNftsInRound{
+                                    user_address: sender,
+                                    total_minted: 1
+                                });
+
+                                //tranfer new nft to the sender address
+                                transfer::transfer(new_nft,sender);
+                            } else {
+                                //the maximum tokens can be minted by user in each round = 2
+                                assert!(address_in_list.total_minted < 2,EMaximumMint);
+                                assert!(coin::value(coin) >= current_round_mint_fee,ENotValidCoinAmount); 
+
+                                // create nft object
+                                let new_nft = Nft{
+                                    id: object::new(ctx),
+                                    name: string::utf8(nft_name),
+                                    description: string::utf8(nft_description),
+                                    owner: sender,
+                                    round_id: round_id,
+                                    url: url::new_unsafe_from_bytes(url),
+                                };
+
+                                // emit event
+                                event::emit(MintNft{
+                                    nft_id: object::uid_to_inner(&new_nft.id),
+                                    owner: sender,
+                                    round_id: round_id,
+                                });
+                                
+                                //tranfer mint fee to admin address
+                                let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
+                                transfer::transfer(coin::from_balance(mint_balance,ctx), admin.address);
+                                //update total of user's minted nft in current round 
+                                address_in_list.total_minted = address_in_list.total_minted + 1; 
+                                //tranfer new nft to the sender address
+                                transfer::transfer(new_nft,sender);
+                            };
+                            index_nft = index_nft+1;
+                        }
+                    } else {
+
+                        if(index == vector::length(current_round_whitelist)-1) {
+                            //abort that sender was not in round's white_list
+                            abort(ESenderNotInWhiteList)
+                        }
                     };
-                    event::emit(MintNft{
-                        nft_id: object::uid_to_inner(&new_nft.id),
-                        owner: sender,
-                        round_id: round_id,
-                    });
-                     //tranfer mint fee to admin address
-                    let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
-                    transfer::transfer(coin::from_balance(mint_balance,ctx), admin.address);
-                    //add user's minted nft to `allNfts` in current round 
-                    vector::push_back(current_round_allNfts,UserNftsInRound{
-                        user_address: sender,
-                        total_minted: 1
-                    });
-                    //tranfer new nft to the sender address
-                    transfer::transfer(new_nft,sender);
-                }
-                else{
-                    //the maximum tokens can be minted by user in each round = 2
-                    assert!(address_in_list.total_minted < 2,EMaximumMint);
-                    assert!(coin::value(coin) >= current_round_mint_fee,ENotValidCoinAmount);
-                    let new_nft = Nft{
-                    id: object::new(ctx),
-                    name: string::utf8(nft_name),
-                    description: string::utf8(nft_description),
-                    owner: sender,
-                    round_id: round_id,
-                    url: url::new_unsafe_from_bytes(url),
-                    };
-                    event::emit(MintNft{
-                        nft_id: object::uid_to_inner(&new_nft.id),
-                        owner: sender,
-                        round_id: round_id,
-                    });
-                    //tranfer mint fee to admin address
-                    let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
-                    transfer::transfer(coin::from_balance(mint_balance,ctx), admin.address);
-                    //update total of user's minted nft in current round 
-                    address_in_list.total_minted = address_in_list.total_minted + 1; 
-                    //tranfer new nft to the sender address
-                    transfer::transfer(new_nft,sender);
+
+                    index=index+1;
                 };
-                index_nft = index_nft+1;
+
+            } else {
+
+                if (i == length-1) {
+                    //abort that round is not exists in global storage 
+                    abort(ERoundNotExist)
                 }
-                }
-                else{
-                    if(index == vector::length(current_round_whitelist)-1){
-                    //abort that sender was not in round's white_list
-                    abort(ESenderNotInWhiteList)
-                }
-                };
-                index=index+1;
             };
-            }else{
-            if(i == length-1){
-                //abort that round is not exists in global storage 
-                abort(ERoundNotExist)
-            }
-            };
-            i=i+1;
+            
+            i = i + 1;
         }    
     }
 }
