@@ -292,13 +292,13 @@ module shoshin::Nfts{
                 let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
                 transfer::transfer(coin::from_balance(mint_balance,ctx), admin.address);
                 transfer::transfer(new_nft,sender);
-            }
+            };
 
             index = index + 1;
         }; 
 
         if (in_whitelist == false) {
-            abort(ESenderNotInWhiteList);
+            abort(ESenderNotInWhiteList)
         }
     }
 }
