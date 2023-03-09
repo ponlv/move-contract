@@ -20,11 +20,26 @@ module shoshin::Nfts{
    const ERoundNotExist:u64 = 5;
    const EMaximumMint:u64 = 6;
    const ENotValidCoinAmount:u64 = 7; 
+
+   friend shoshin::Marketplace;
    
 
     struct Admin has key {
         id: UID,
         address: address
+    }
+
+
+    // public(friend) fun create_admin(ctx: &mut TxContext) {
+    //     let admin = Admin{
+    //         id: object::new(ctx),
+    //         address: sender(ctx)
+    //     };
+    //     transfer::share_object(admin);
+    // }
+
+    public(friend) fun get_address(admin: &Admin) : address {
+        admin.address
     }
 
     /*--------ROUND-----------*/
@@ -260,7 +275,9 @@ module shoshin::Nfts{
                     let sender_nft_stat = vector::borrow_mut(current_round_allNfts, sender_index_in_whitelist);
                     
                     // maximum nft sender can mint perround is 2
-                    assert!(sender_nft_stat.total_minted < 2,EMaximumMint);
+                    if (sender_nft_stat.total_minted >= 2) {
+                          abort(EMaximumMint)
+                    };
                     
                     // increase total mint of sender
                     sender_nft_stat.total_minted = sender_nft_stat.total_minted + 1;

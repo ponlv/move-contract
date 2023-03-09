@@ -1,0 +1,15 @@
+2023-03-08T05:25:22.500391Z  WARN sui::client_commands: Client/Server api version mismatch, client api version : 0.27.0, server api version : 0.27.1
+2023-03-08T05:25:25.538305Z  INFO sui::client_commands: [1m----- Certificate ----[0m
+2023-03-08T05:25:25.538322Z  INFO sui::client_commands: Transaction Hash: TransactionDigest(56gcSE7BNfa5yivrrAqb2xfiXpFN3faqr33vwCSmBnbk)
+2023-03-08T05:25:25.538325Z  INFO sui::client_commands: Transaction Signature: [Signature(AQ==@u+4Duoz/V4D4dx1UIVKLxzT2I0yXpJBDKoJ/q36eG8EQ8EIv9PuYpIeq33bh8f0WbRnZF19aIMWZzRvg4eKgxw==@A+aU6Ovi2yRoLMObeZMIH7UlihEJZAzYjVv31gHuahjY)]
+2023-03-08T05:25:25.538328Z  INFO sui::client_commands: Signed Authorities Bitmap: RoaringBitmap<[1, 2, 3]>
+2023-03-08T05:25:25.538331Z  INFO sui::client_commands: Transaction Kind : Publish
+2023-03-08T05:25:25.538333Z  INFO sui::client_commands: Sender: 0xf81a2f007ce4d9f6fdd506569ed585df63ea6857
+2023-03-08T05:25:25.538336Z  INFO sui::client_commands: Gas Payment: Object ID: 0x03d79f39f2d23cce1d42d639b358d2cc1c291411, version: 0xd7f, digest: o#/eqxiPvFg/tXIwRNlk1+FAePGzBQVc1dYWl2acf9deQ=
+2023-03-08T05:25:25.538339Z  INFO sui::client_commands: Gas Owner: 0xf81a2f007ce4d9f6fdd506569ed585df63ea6857
+2023-03-08T05:25:25.538341Z  INFO sui::client_commands: Gas Price: 1
+2023-03-08T05:25:25.538344Z  INFO sui::client_commands: Gas Budget: 1000
+2023-03-08T05:25:25.538346Z  INFO sui::client_commands: [1m----- Transaction Effects ----[0m
+2023-03-08T05:25:25.538349Z  INFO sui::client_commands: Status : Failure { error: "InsufficientGas" }
+2023-03-08T05:25:25.538352Z  INFO sui::client_commands: Mutated Objects:
+2023-03-08T05:25:25.538355Z  INFO sui::client_commands:   - ID: 0x03d79f39f2d23cce1d42d639b358d2cc1c291411 , Owner: Account Address ( 0xf81a2f007ce4d9f6fdd506569ed585df63ea6857 )
