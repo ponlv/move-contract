@@ -20,6 +20,7 @@ module shoshin::Nfts{
    const ERoundNotExist:u64 = 5;
    const EMaximumMint:u64 = 6;
    const ENotValidCoinAmount:u64 = 7; 
+   const ENotNftOwner:u64 = 8;
    
 
     struct Admin has key {
@@ -60,7 +61,7 @@ module shoshin::Nfts{
 
 
     /*---------------NFT---------------*/
-    struct Nft has key {
+    struct Nft has key,store {
         id: UID,
         name: String,
         description: String,
@@ -93,7 +94,7 @@ module shoshin::Nfts{
         transfer::share_object(rounds);
     }
 
-    entry fun create_new_round(
+    public entry fun create_new_round(
         admin:&mut Admin, 
         allRounds:&mut AllRounds, 
         round_name: vector<u8>,
@@ -133,9 +134,9 @@ module shoshin::Nfts{
         vector::push_back(current_rounds, round);
     }
 
-    entry fun update_round_whitelist(
+    public entry fun update_round_whitelist(
         admin:&mut Admin,
-        round_id: ID, 
+        //round_id: ID, 
         allRounds:&mut AllRounds, 
         current_time: u64, 
         new_whitelist: vector<address>, 
@@ -146,62 +147,46 @@ module shoshin::Nfts{
         // check sender is admin
         assert!(admin.address == sender,EAdminOnly);
 
-        let rounds = &mut allRounds.rounds;
+        let rounds =&mut allRounds.rounds;
         let length = vector::length(rounds);
-        let i = 0;
+        let current_round = vector::borrow_mut(rounds, length - 1);
 
-        while(i < length){
-            let current_round = vector::borrow_mut(rounds, i);
-            let current_round_id = object::uid_to_inner(&current_round.id);
+        // check current_time with round time
+        assert!(current_time < current_round.start_time, ERoundWasStarted);
 
-            if(current_round_id == round_id){
+        // get round whitelist
+        let current_round_whitelist =&mut current_round.white_list;
 
-                // check current_time with round time
-                assert!(current_time < current_round.start_time, ERoundWasStarted);
+        // append new whitelist
+        vector::append(current_round_whitelist,new_whitelist); 
 
-                // get round whitelist
-                let current_round_whitelist =&mut current_round.white_list;
-
-                // append new whitelist
-                vector::append(current_round_whitelist,new_whitelist); 
-            };
-            i = i+1;
-        }  
     }
 
-    entry fun update_round_status(
+    public entry fun update_round_status(
         admin:&mut Admin,
-        round_id: ID, 
         allRounds:&mut AllRounds, 
         current_time: u64, 
-        ctx:&mut TxContext)  {
+        ctx:&mut TxContext) {
         let sender = sender(ctx);
         //get admin address on global storage
         assert!(admin.address == sender,EAdminOnly);
         //check the current Rounds was save on global    
         let rounds =&mut allRounds.rounds;
         let length = vector::length(rounds);
-        let i = 0;
-        while(i < length){
-            let current_round = vector::borrow_mut(rounds, i);
+        let current_round = vector::borrow_mut(rounds, length - 1);
 
-            if(object::uid_to_inner(&current_round.id) == round_id) { 
- 
-                assert!(current_time >= current_round.start_time, ERoundDidNotStartedYet);
+        assert!(current_time >= current_round.start_time, ERoundDidNotStartedYet);
                 
-                if (current_time >= current_round.end_time) {
-                    abort(ERoundWasEnded)
-                };
+        if (current_time >= current_round.end_time) {
+            abort(ERoundWasEnded)
+        };
 
-                if (current_round.is_start == 1) {
-                    current_round.is_start = 0;
-                } else {
-                    current_round.is_start = 1;
-                }
-            };
-            i = i + 1;
-        }  
-    }
+        if (current_round.is_start == 1) {
+            current_round.is_start = 0;
+        } else {
+            current_round.is_start = 1;
+        }
+    }  
 
 
     fun check_exist_nft_of_user_in_allNfts(sender: address, current_round_allNfts:&mut vector<UserNftsInRound>):bool {
@@ -228,8 +213,7 @@ module shoshin::Nfts{
         return index_nft
     }
 
-
-    entry fun buy_nft(
+    public entry fun buy_nft(
         admin:&mut Admin, 
         allRounds:&mut AllRounds, 
         url: vector<u8>,  
@@ -356,4 +340,11 @@ module shoshin::Nfts{
             }
         }
     }
+
+    public entry fun transfer_nft(nft: Nft, reciper_address: address, ctx:&mut TxContext){
+        let sender = sender(ctx);
+        assert!(nft.owner == sender, ENotNftOwner);
+        transfer::transfer(nft,reciper_address);
+    }
+
 }
