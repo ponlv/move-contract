@@ -44,7 +44,6 @@ module shoshin::marketplace {
                 last_offer_id: u64,
         }
 
-
         fun init(ctx: &mut TxContext) {
             let admin = Admin{
                 id: object::new(ctx),
@@ -52,7 +51,7 @@ module shoshin::marketplace {
             };
             transfer::share_object(admin);
         }
-
+        
         struct UpdateMarketplaceEvent has copy, drop {
                 marketplace_id: ID,
                 marketplace_name: String,
