@@ -17,7 +17,8 @@ module shoshin::marketplace {
 
         struct Admin has key {
             id: UID,
-            address: address
+            address: address,
+            receive_address : address
         }
 
         struct Offer<C: key + store> has store, key {
@@ -31,6 +32,7 @@ module shoshin::marketplace {
         struct Marketplace has key {
                 id: UID,
                 admin : address,
+                receive_address : address,
                 name : String,
                 description : String,
                 fee : u64,
@@ -47,26 +49,47 @@ module shoshin::marketplace {
         fun init(ctx: &mut TxContext) {
             let admin = Admin{
                 id: object::new(ctx),
-                address: tx_context::sender(ctx)
+                address: tx_context::sender(ctx),
+                receive_address: tx_context::sender(ctx),
             };
             transfer::share_object(admin);
         }
-        
-        struct UpdateMarketplaceEvent has copy, drop {
-                marketplace_id: ID,
-                marketplace_name: String,
-                marketplace_admin_address: address,
-                fee : u64
+
+
+        public entry fun update_admin_receive_address(admin: &mut Admin, admin_addresss: address, ctx: &mut TxContext) {
+                let sender = tx_context::sender(ctx);
+                assert!(sender == admin.address, EAdminOnly);
+                admin.receive_address = admin_addresss;
         }
 
-        public entry fun update_marketplace_fee(marketplace: &mut Marketplace, fee: u64, ctx: &mut TxContext) {
+        struct UpdateReceiveAddressMarketplaceEvent has copy, drop {
+                marketplace_id: ID,
+                receive_address: address
+        }
+
+        public entry fun update_marketplace_fee(marketplace: &mut Marketplace, receive_address : address, ctx: &mut TxContext) {
                 let sender = tx_context::sender(ctx);
                 let admin_address = marketplace.admin;
                 assert!(admin_address == sender,EAdminOnly);
-                event::emit(UpdateMarketplaceEvent{
+                event::emit(UpdateReceiveAddressMarketplaceEvent{
                         marketplace_id: object::id(marketplace),
-                        marketplace_name: marketplace.name,
-                        marketplace_admin_address: marketplace.admin,
+                        receive_address: receive_address
+                });
+                marketplace.receive_address = receive_address;
+        }
+
+
+        struct UpdateFeeMarketplaceEvent has copy, drop {
+                marketplace_id: ID,
+                fee : u64
+        }
+
+        public entry fun update_marketplace_receive_address(marketplace: &mut Marketplace, fee: u64, ctx: &mut TxContext) {
+                let sender = tx_context::sender(ctx);
+                let admin_address = marketplace.admin;
+                assert!(admin_address == sender,EAdminOnly);
+                event::emit(UpdateFeeMarketplaceEvent{
+                        marketplace_id: object::id(marketplace),
                         fee: marketplace.fee
                 });
                 marketplace.fee = fee;
@@ -85,7 +108,8 @@ module shoshin::marketplace {
                 assert!(admin_address == sender,EAdminOnly);
                 let marketplace = Marketplace {
                         id: object::new(ctx),
-                        admin: admin_address,
+                        receive_address: admin.receive_address,
+                        admin : admin_address,
                         name: string::utf8(name),
                         description: string::utf8(description),
                         fee: fee
@@ -146,7 +170,7 @@ module shoshin::marketplace {
                 let fee = price / 100 * marketplace.fee;
                 let buy_fee = price - fee;
                 let fee_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), fee);
-                transfer::transfer(coin::from_balance(fee_balance,ctx), marketplace.admin);
+                transfer::transfer(coin::from_balance(fee_balance,ctx), marketplace.receive_address);
                 let buy_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), buy_fee);
                 transfer::transfer(coin::from_balance(buy_balance,ctx), seller);
                 transfer::transfer(item, tx_context::sender(ctx)); 
@@ -267,7 +291,7 @@ module shoshin::marketplace {
                 let buy_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), offer_price - fee_price);
                 let fee_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), fee_price);
                 transfer::transfer(coin::from_balance(buy_balance, ctx), seller);
-                transfer::transfer(coin::from_balance(fee_balance, ctx), marketplace.admin);
+                transfer::transfer(coin::from_balance(fee_balance, ctx), marketplace.receive_address);
                 transfer::transfer(item, offerer);
                 object::delete(idOffer);
                 object::delete(id);
