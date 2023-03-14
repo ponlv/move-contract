@@ -25,7 +25,8 @@ module shoshin::Nfts{
 
     struct Admin has key {
         id: UID,
-        address: address
+        address: address,
+        receive_address: address
     }
 
     /*--------ROUND-----------*/
@@ -81,7 +82,8 @@ module shoshin::Nfts{
         //set address of deployer to admin
         let admin = Admin{
             id: object::new(ctx),
-            address: sender(ctx)
+            address: sender(ctx),
+            receive_address: sender(ctx)
         };
         let rounds = AllRounds{
             id: object::new(ctx),
@@ -92,6 +94,13 @@ module shoshin::Nfts{
         // after the smart contract deployment we will get the ID to access it
         transfer::share_object(admin);
         transfer::share_object(rounds);
+    }
+
+    public entry fun change_receive_address(admin:&mut Admin, new_receive_address: address, ctx:&mut TxContext){
+        let sender = sender(ctx);
+        //admin only
+        assert!(admin.address == sender,EAdminOnly);
+        admin.receive_address = new_receive_address;
     }
 
     public entry fun create_new_round(
@@ -241,6 +250,10 @@ module shoshin::Nfts{
         let current_round_mint_fee = current_round.fee_for_mint;
         let current_round_is_public = current_round.is_public;
 
+         
+        // check balance of sender
+        assert!(coin::value(coin) >= current_round_mint_fee,ENotValidCoinAmount); 
+
         //check current if round is public
         if(current_round_is_public == 1){
 
@@ -275,7 +288,7 @@ module shoshin::Nfts{
             });
 
             let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
-            transfer::transfer(coin::from_balance(mint_balance,ctx), admin.address);
+            transfer::transfer(coin::from_balance(mint_balance,ctx), admin.receive_address);
             transfer::transfer(new_nft,sender);
 
         } else{
@@ -287,10 +300,6 @@ module shoshin::Nfts{
                 if(address_in_whitelist == &sender) {
                     
                     in_whitelist = true;
-                    
-                    // check balance of sender
-                    assert!(coin::value(coin) >= current_round_mint_fee,ENotValidCoinAmount); 
-
                     // if sender alrealdy mint nft, we need to check total nft that user minted 
                     if (is_exist_nft_of_sender == true) {
 
@@ -328,7 +337,7 @@ module shoshin::Nfts{
                     });
 
                     let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
-                    transfer::transfer(coin::from_balance(mint_balance,ctx), admin.address);
+                    transfer::transfer(coin::from_balance(mint_balance,ctx), admin.receive_address);
                     transfer::transfer(new_nft,sender);
                 };
 
@@ -341,10 +350,10 @@ module shoshin::Nfts{
         }
     }
 
-    public entry fun transfer_nft(nft: Nft, reciper_address: address, ctx:&mut TxContext){
+    public entry fun transfer_nft(nft: Nft, receive_address: address, ctx:&mut TxContext){
         let sender = sender(ctx);
         assert!(nft.owner == sender, ENotNftOwner);
-        transfer::transfer(nft,reciper_address);
+        transfer::transfer(nft,receive_address);
     }
 
 }
