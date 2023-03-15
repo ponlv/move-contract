@@ -15,6 +15,7 @@ module shoshin::marketplace {
         const EAmountIncorrect:u64 = 9;
         const EWasOwned: u64 = 10;
         const EWrongOfferOwner: u64 = 11;
+        const EWrongOfferPrice: u64 = 12;
 
         struct Admin has key {
             id: UID,
@@ -29,7 +30,6 @@ module shoshin::marketplace {
                 paid: C,
                 offer_price: u64,
                 offerer: address,
-                deleted : bool
         }
 
         struct ListOffer<C: key + store> has store, key {
@@ -51,6 +51,7 @@ module shoshin::marketplace {
                 seller: address,
                 item: T,
                 price: u64,
+                current_offer : u64,
                 last_offer_id: u64,
         }
 
@@ -138,13 +139,30 @@ module shoshin::marketplace {
         }
 
         public entry fun make_delist_item<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, ctx: &mut TxContext) {
-                let List<T> { id, seller, item, price, last_offer_id : _ } = ofield::remove(&mut marketplace.id, nft_id);
+                let List<T> { id, seller, item, price,current_offer: _, last_offer_id } = ofield::remove(&mut marketplace.id, nft_id);
                 assert!(tx_context::sender(ctx) == seller, EWrongOwner);
-                // if (last_offer_id != 0) {
-                //         let Offer<Coin<SUI>> {id: idOffer, offers} = ofield::remove(&mut id, last_offer_id);
-                //         object::delete(idOffer);
-                //         transfer::transfer(paid, offerer);
-                // };
+                 if (last_offer_id != 0) {
+                        let ListOffer<Coin<SUI>> {id: offer_id, offers} = ofield::remove(&mut marketplace.id, 0);
+                        let index = 0;
+                        let duration = vector::length(&mut offers);
+                        while (index < duration) {
+                                let Offer<Coin<SUI>> {id : offerId, offer_id : _, paid, offer_price, offerer} = vector::remove(&mut offers, 0);
+                                if(coin::value(&mut paid) != 0 ) {
+                                        let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), offer_price);
+                                        transfer::transfer(coin::from_balance(offer_balance, ctx), offerer);
+                                        coin::destroy_zero(paid);
+                                        object::delete(offerId);
+                                        index = index + 1;
+                                }
+                                else {
+                                        coin::destroy_zero(paid);
+                                        object::delete(offerId);
+                                        index = index + 1;
+                                }
+                        }; 
+                        vector::destroy_empty(offers);
+                        object::delete(offer_id);     
+                };
                 event::emit(DelistNftEvent{
                         nft_id: object::id(&item),
                         price: price,
@@ -162,13 +180,30 @@ module shoshin::marketplace {
         }
 
         public entry fun make_buy_item<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, coin:&mut Coin<SUI>, ctx: &mut TxContext) {
-                let List<T> { id, seller, item, price, last_offer_id : _ } = ofield::remove(&mut marketplace.id, nft_id);
+                let List<T> { id, seller, item, price, current_offer: _, last_offer_id} = ofield::remove(&mut marketplace.id, nft_id);
                 assert!(coin::value(coin) >= price , EAmountIncorrect);
-                //  if (last_offer_id != 0) {
-                //         let Offer<Coin<SUI>> {id: idOffer,  offer_id: _, paid, offer_price : _, deleted: _, offerer} = ofield::remove(&mut id, last_offer_id);
-                //         object::delete(idOffer);
-                //         transfer::transfer(paid, offerer);
-                // };
+                 if (last_offer_id != 0) {
+                        let ListOffer<Coin<SUI>> {id: offer_id, offers} = ofield::remove(&mut marketplace.id, 0);
+                        let index = 0;
+                        let duration = vector::length(&mut offers);
+                        while (index < duration) {
+                                let Offer<Coin<SUI>> {id : offerId, offer_id : _, paid, offer_price, offerer} = vector::remove(&mut offers, 0);
+                                if(coin::value(&mut paid) != 0 ) {
+                                        let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), offer_price);
+                                        transfer::transfer(coin::from_balance(offer_balance, ctx), offerer);
+                                        coin::destroy_zero(paid);
+                                        object::delete(offerId);
+                                        index = index + 1;
+                                }
+                                else {
+                                        coin::destroy_zero(paid);
+                                        object::delete(offerId);
+                                        index = index + 1;
+                                }
+                        }; 
+                        vector::destroy_empty(offers);
+                        object::delete(offer_id);     
+                };
                 event::emit(BuyNftEvent{
                         nft_id: object::id(&item),
                         price: price,
@@ -182,7 +217,7 @@ module shoshin::marketplace {
                 let buy_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), buy_fee);
                 transfer::transfer(coin::from_balance(buy_balance,ctx), seller);
                 transfer::transfer(item, tx_context::sender(ctx)); 
-                object::delete(id);        
+                object::delete(id);       
         }
 
         struct UpdateNftEvent has copy, drop {
@@ -214,6 +249,7 @@ module shoshin::marketplace {
                         seller: tx_context::sender(ctx),
                         item: item,
                         price: price,
+                        current_offer: 0,
                         last_offer_id: 0,
                 };
                 event::emit(ListNftEvent{
@@ -228,7 +264,7 @@ module shoshin::marketplace {
                         offers : vector::empty(),
                 };
 
-                ofield::add(&mut listing.id, nft_id, init_offer); 
+                ofield::add(&mut marketplace.id, 0, init_offer); 
                 ofield::add(&mut marketplace.id, nft_id, listing);
         }
 
@@ -240,27 +276,25 @@ module shoshin::marketplace {
         }
 
         public entry fun make_offer<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, offer_price: u64, coin: &mut Coin<SUI>, ctx: &mut TxContext) {
-                let List<T> { id, seller, item, price, last_offer_id } = ofield::remove(&mut marketplace.id, nft_id);
+                let List<T> { id, seller, item, price, current_offer, last_offer_id } = ofield::remove(&mut marketplace.id, nft_id);
                 assert!(tx_context::sender(ctx) != seller, EWasOwned);
-                let ListOffer<Coin<SUI>> { id: _, offers} = ofield::borrow_mut(&mut id, nft_id);
-
+                assert!(offer_price > current_offer, EWrongOfferPrice);
+                assert!(offer_price > price, EWrongOfferPrice);
+                let ListOffer<Coin<SUI>> { id : _, offers} = ofield::borrow_mut(&mut marketplace.id, 0);
                 let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), offer_price);
-
                 vector::push_back(offers, Offer<Coin<SUI>> {
                         id: object::new(ctx),
                         offer_id: last_offer_id + 1,
                         paid: coin::from_balance(offer_balance,ctx),
                         offerer: tx_context::sender(ctx),
-                        offer_price : offer_price,
-                        deleted : false,
+                        offer_price : offer_price
                 });
-
-                object::delete(id);
                 let new_list = List<T> {
                         id: object::new(ctx),
                         seller: seller,
                         item: item,
                         price: price,
+                        current_offer: offer_price,
                         last_offer_id: last_offer_id + 1,
                 };
                 event::emit(OfferNftEvent{
@@ -269,6 +303,7 @@ module shoshin::marketplace {
                         offer_price: price,
                         offerer: tx_context::sender(ctx),
                 });
+                object::delete(id);
                 ofield::add(&mut marketplace.id, nft_id, new_list);              
         }
 
@@ -278,16 +313,22 @@ module shoshin::marketplace {
         }
 
         public entry fun make_delete_offer<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, offer_id: u64, ctx: &mut TxContext) {
-                let List<T> { id, seller: _, item: _, price : _, last_offer_id: _ } = ofield::borrow_mut(&mut marketplace.id, nft_id);
-                let ListOffer<Coin<SUI>> { id: _, offers } = ofield::borrow_mut(id, offer_id);
-                let current_offer = vector::borrow_mut(offers, offer_id - 1);
-                assert!(tx_context::sender(ctx) == current_offer.offerer, EWrongOfferOwner);
-                event::emit(DeleteOfferEvent{
-                        nft_id: nft_id,
-                        offerer: current_offer.offerer
-                });
-                let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut current_offer.paid), current_offer.offer_price);
-                transfer::transfer(coin::from_balance(offer_balance, ctx), current_offer.offerer);
+                let List<T> { id : _, seller: _, item: _, price : _, current_offer: _, last_offer_id: _ } = ofield::borrow_mut(&mut marketplace.id, nft_id);
+                let ListOffer<Coin<SUI>> {id: _, offers} = ofield::borrow_mut(&mut marketplace.id, 0);
+                let index = 0;
+                let duration = vector::length(offers);
+                while (index < duration) {
+                        let Offer<Coin<SUI>> {id : _, offer_id : current_offer_id, paid, offer_price, offerer} = vector::borrow_mut(offers, index);
+                        if(offer_id == *current_offer_id) {
+                                event::emit(DeleteOfferEvent{
+                                        nft_id: nft_id,
+                                        offerer: *offerer,
+                                });
+                                let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(paid), *offer_price);
+                                transfer::transfer(coin::from_balance(offer_balance, ctx), *offerer);
+                        };
+                        index = index + 1;
+                };
         }
 
         struct AcceptOfferEvent has copy, drop {
@@ -297,25 +338,52 @@ module shoshin::marketplace {
                 seller: address
         }
 
-        // public entry fun make_accept_offer<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, offer_id: u64, ctx: &mut TxContext) { 
-        //         let List<T> { id, seller, item, price, last_offer_id: _ } = ofield::remove(&mut marketplace.id, nft_id);
-        //         assert!(tx_context::sender(ctx) == seller, EWrongOfferOwner);
-        //         let ListOffer<Coin<SUI>> {id: idOffer, offers } = ofield::remove(&mut id, offer_id);
-        //         event::emit(AcceptOfferEvent{
-        //                 nft_id: nft_id,
-        //                 price : price,
-        //                 offerer: offerer,
-        //                 seller: seller
-        //         });
-        //         let fee_price = offer_price * marketplace.fee / 100;
-        //         let buy_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), offer_price - fee_price);
-        //         let fee_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), fee_price);
-        //         transfer::transfer(coin::from_balance(buy_balance, ctx), seller);
-        //         transfer::transfer(coin::from_balance(fee_balance, ctx), marketplace.receive_address);
-        //         transfer::transfer(item, offerer);
-        //         object::delete(idOffer);
-        //         object::delete(id);
-        //         coin::destroy_zero(paid);
-        // } 
+        public entry fun make_accept_offer<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, offer_id: u64, ctx: &mut TxContext) { 
+                let List<T> { id, seller, item, price : _, current_offer: _, last_offer_id } = ofield::remove(&mut marketplace.id, nft_id);
+                assert!(tx_context::sender(ctx) == seller, EWrongOfferOwner);
+                let offer_address : address = tx_context::sender(ctx);
+                if (last_offer_id != 0) {
+                        let ListOffer<Coin<SUI>> {id: list_offer_id, offers} = ofield::remove(&mut marketplace.id, 0);
+                        let index = 0;
+                        let duration = vector::length(&mut offers);
+                        while (index < duration) {
+                                let Offer<Coin<SUI>> {id : offerId, offer_id : current_offer_id, paid, offer_price, offerer} = vector::remove(&mut offers, 0);
+                                if(coin::value(&mut paid) != 0 ) {
+                                        if(current_offer_id == offer_id) {
+                                                offer_address = offerer;
+                                                event::emit(AcceptOfferEvent{
+                                                        nft_id: nft_id,
+                                                        price : offer_price,
+                                                        offerer: offerer,
+                                                        seller: seller
+                                                });
+                                                let fee_price = offer_price * marketplace.fee / 100;
+                                                let buy_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), offer_price - fee_price);
+                                                let fee_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), fee_price);
+                                                transfer::transfer(coin::from_balance(buy_balance, ctx), seller);
+                                                transfer::transfer(coin::from_balance(fee_balance, ctx), marketplace.receive_address);
+                                                coin::destroy_zero(paid);
+                                                object::delete(offerId);
+                                                index = index + 1;
+                                        } else {
+                                                let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), offer_price);
+                                                transfer::transfer(coin::from_balance(offer_balance, ctx), offerer);
+                                                coin::destroy_zero(paid);
+                                                object::delete(offerId);
+                                                index = index + 1;
+                                        }
+                                }
+                                else {
+                                        coin::destroy_zero(paid);
+                                        object::delete(offerId);
+                                        index = index + 1;
+                                }
+                        }; 
+                        vector::destroy_empty(offers);
+                        object::delete(list_offer_id);     
+                };
+                transfer::transfer(item, offer_address);
+                object::delete(id);
+        } 
 
 }
