@@ -16,6 +16,8 @@ module shoshin::marketplace {
         const EWasOwned: u64 = 10;
         const EWrongOfferOwner: u64 = 11;
         const EWrongOfferPrice: u64 = 12;
+        const EListWasEnded:u64 = 13;
+
 
         struct Admin has key {
             id: UID,
@@ -51,6 +53,7 @@ module shoshin::marketplace {
                 seller: address,
                 item: T,
                 price: u64,
+                end_time: u64,
                 current_offer : u64,
                 last_offer_id: u64,
         }
@@ -139,7 +142,7 @@ module shoshin::marketplace {
         }
 
         public entry fun make_delist_item<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, ctx: &mut TxContext) {
-                let List<T> { id, seller, item, price,current_offer: _, last_offer_id } = ofield::remove(&mut marketplace.id, nft_id);
+                let List<T> { id, seller, item, price,current_offer: _, end_time: _, last_offer_id } = ofield::remove(&mut marketplace.id, nft_id);
                 assert!(tx_context::sender(ctx) == seller, EWrongOwner);
                  if (last_offer_id != 0) {
                         let ListOffer<Coin<SUI>> {id: offer_id, offers} = ofield::remove(&mut marketplace.id, 0);
@@ -179,9 +182,11 @@ module shoshin::marketplace {
                 buyer: address
         }
 
-        public entry fun make_buy_item<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, coin:&mut Coin<SUI>, ctx: &mut TxContext) {
-                let List<T> { id, seller, item, price, current_offer: _, last_offer_id} = ofield::remove(&mut marketplace.id, nft_id);
+        public entry fun make_buy_item<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, current_time: u64, coin:&mut Coin<SUI>, ctx: &mut TxContext) {
+                let List<T> { id, seller, item, price, current_offer: _, end_time, last_offer_id} = ofield::remove(&mut marketplace.id, nft_id);
                 assert!(coin::value(coin) >= price , EAmountIncorrect);
+                assert!(end_time > current_time, EListWasEnded);
+
                  if (last_offer_id != 0) {
                         let ListOffer<Coin<SUI>> {id: offer_id, offers} = ofield::remove(&mut marketplace.id, 0);
                         let index = 0;
@@ -242,12 +247,13 @@ module shoshin::marketplace {
                 seller: address,
         }
 
-        public entry fun make_list_item<T: store + key>(marketplace: &mut Marketplace, item: T, price: u64, ctx: &mut TxContext) {
+        public entry fun make_list_item<T: store + key>(marketplace: &mut Marketplace, item: T, price: u64, end_time: u64, ctx: &mut TxContext) {
                 let nft_id = object::id(&item);
                 let listing = List<T> {
                         id: object::new(ctx),
                         seller: tx_context::sender(ctx),
                         item: item,
+                        end_time : end_time,
                         price: price,
                         current_offer: 0,
                         last_offer_id: 0,
@@ -275,11 +281,12 @@ module shoshin::marketplace {
                 offerer: address,
         }
 
-        public entry fun make_offer<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, offer_price: u64, coin: &mut Coin<SUI>, ctx: &mut TxContext) {
-                let List<T> { id, seller, item, price, current_offer, last_offer_id } = ofield::remove(&mut marketplace.id, nft_id);
+        public entry fun make_offer<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, offer_price: u64, current_time: u64, coin: &mut Coin<SUI>, ctx: &mut TxContext) {
+                let List<T> { id, seller, item, price, current_offer, end_time, last_offer_id } = ofield::remove(&mut marketplace.id, nft_id);
                 assert!(tx_context::sender(ctx) != seller, EWasOwned);
                 assert!(offer_price > current_offer, EWrongOfferPrice);
                 assert!(offer_price > price, EWrongOfferPrice);
+                assert!(end_time > current_time, EListWasEnded);
                 let ListOffer<Coin<SUI>> { id : _, offers} = ofield::borrow_mut(&mut marketplace.id, 0);
                 let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), offer_price);
                 vector::push_back(offers, Offer<Coin<SUI>> {
@@ -294,6 +301,7 @@ module shoshin::marketplace {
                         seller: seller,
                         item: item,
                         price: price,
+                        end_time : end_time,
                         current_offer: offer_price,
                         last_offer_id: last_offer_id + 1,
                 };
@@ -313,7 +321,7 @@ module shoshin::marketplace {
         }
 
         public entry fun make_delete_offer<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, offer_id: u64, ctx: &mut TxContext) {
-                let List<T> { id : _, seller: _, item: _, price : _, current_offer: _, last_offer_id: _ } = ofield::borrow_mut(&mut marketplace.id, nft_id);
+                let List<T> { id : _, seller: _, item: _, price : _, current_offer: _, end_time: _, last_offer_id: _ } = ofield::borrow_mut(&mut marketplace.id, nft_id);
                 let ListOffer<Coin<SUI>> {id: _, offers} = ofield::borrow_mut(&mut marketplace.id, 0);
                 let index = 0;
                 let duration = vector::length(offers);
@@ -339,7 +347,7 @@ module shoshin::marketplace {
         }
 
         public entry fun make_accept_offer<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, offer_id: u64, ctx: &mut TxContext) { 
-                let List<T> { id, seller, item, price : _, current_offer: _, last_offer_id } = ofield::remove(&mut marketplace.id, nft_id);
+                let List<T> { id, seller, item, price : _, current_offer: _, end_time: _, last_offer_id } = ofield::remove(&mut marketplace.id, nft_id);
                 assert!(tx_context::sender(ctx) == seller, EWrongOfferOwner);
                 let offer_address : address = tx_context::sender(ctx);
                 if (last_offer_id != 0) {
