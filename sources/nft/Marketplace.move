@@ -18,6 +18,8 @@ module shoshin::marketplace {
         const EWrongOfferPrice: u64 = 12;
         const EListWasEnded:u64 = 13;
         const EBidAmountIncorrect:u64 = 14;
+        const ESoonBid:u64 = 14;
+        const ELateBid:u64 = 15;
 
 
 
@@ -493,6 +495,7 @@ module shoshin::marketplace {
                 marketplace: &mut Marketplace,
                 nft_id: ID,
                 new_bid: u64,
+                current_time, u64,
                 paid: &mut Coin<SUI>,
                 ctx: &mut TxContext
         ) {
@@ -500,6 +503,8 @@ module shoshin::marketplace {
                 let old_bid = current_bid;
                 assert!(new_bid > old_bid + min_bid_increment, EBidAmountIncorrect);
                 assert!(new_bid >= min_bid, EBidAmountIncorrect);
+                assert!(current_time > start_time, ESoonBid);
+                assert!(current_time < end_time, ELateBid);
 
                 if(old_bid > 0){
                         let current_bid_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut bid), current_bid);
