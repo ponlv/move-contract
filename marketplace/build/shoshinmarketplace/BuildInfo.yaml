@@ -1,12 +1,11 @@
 ---
 compiled_package_info:
-  package_name: shoshinlaunchpad
+  package_name: shoshinmarketplace
   address_alias_instantiation:
-    shoshinlaunchpad: "0000000000000000000000000000000000000000"
-    shoshinnft: "0000000000000000000000000000000000000000"
+    shoshinmarketplace: "0000000000000000000000000000000000000000"
     std: "0000000000000000000000000000000000000001"
     sui: "0000000000000000000000000000000000000002"
-  source_digest: 17725ECAE7574B610F72F6B12B3113B832EB98E549C96C2E6EB72DFEE31B0F87
+  source_digest: B0CEAAD184D444D5BE9F472665BEC5C66C3DBBA396ED2258825855CD29355333
   build_flags:
     dev_mode: false
     test_mode: false
@@ -22,4 +21,3 @@ compiled_package_info:
 dependencies:
   - MoveStdlib
   - Sui
-  - shoshinnft
