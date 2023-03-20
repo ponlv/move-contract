@@ -1,4 +1,4 @@
-module shoshin::marketplace {
+module shoshinmarketplace::marketplace_module {
         use sui::object::{Self, ID, UID};
         use std::string::{Self,String};
         use sui::transfer;

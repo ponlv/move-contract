@@ -1,4 +1,4 @@
-module shoshin::Nfts{
+module shoshinnft::nft_module{
     //import module
     use std::string::{Self,String};
     use sui::tx_context::{TxContext,sender};
@@ -21,8 +21,6 @@ module shoshin::Nfts{
    const EMaximumMint:u64 = 6;
    const ENotValidCoinAmount:u64 = 7; 
    const ENotNftOwner:u64 = 8;
-   const ECurrentRoundNotEndYet:u64 = 9;
-   const ECurrentRoundNotStartYet:u64 = 10;
    
 
     struct Admin has key {
@@ -45,7 +43,7 @@ module shoshin::Nfts{
         end_time: u64,
         limited_token: u32,
         white_list: vector<address>,
-        status: u8, // 1: round is running
+        is_start: u8,
         fee_for_mint: u64,
         allNfts: vector<UserNftsInRound>,
         is_public: u8
@@ -120,13 +118,6 @@ module shoshin::Nfts{
         //admin only
         assert!(admin.address == sender,EAdminOnly);
 
-        let rounds =&mut allRounds.rounds;
-        let length = vector::length(rounds);
-        let current_round = vector::borrow_mut(rounds, length - 1);
-
-        //check status of the current round
-        assert!(current_round.status == 0,ECurrentRoundNotEndYet);
-
         let round = Round{
             id: object::new(ctx),
             round_name: string::utf8(round_name),
@@ -134,7 +125,7 @@ module shoshin::Nfts{
             end_time: end_time,
             limited_token: limited_token,
             white_list: white_list,
-            status: 1,
+            is_start: 0,
             fee_for_mint: fee_for_mint,
             is_public: is_public,
             allNfts: vector::empty()
@@ -199,10 +190,10 @@ module shoshin::Nfts{
             abort(ERoundWasEnded)
         };
 
-        if (current_round.status == 1) {
-            current_round.status = 0;
+        if (current_round.is_start == 1) {
+            current_round.is_start = 0;
         } else {
-            current_round.status = 1;
+            current_round.is_start = 1;
         }
     }  
 
@@ -247,7 +238,6 @@ module shoshin::Nfts{
         let length = vector::length(rounds);
         let current_round = vector::borrow_mut(rounds, length - 1);
 
-        assert!(current_round.status == 1, ECurrentRoundNotStartYet);
         // check time condition
         assert!(current_time >= current_round.start_time, ERoundDidNotStartedYet);
         if (current_time >=  current_round.end_time) {
