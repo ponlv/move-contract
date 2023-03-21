@@ -4,7 +4,7 @@ version = "0.0.0"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework", rev = "devnet" }
-shoshinnft = { local = "../nft" }
+# shoshinnft = { local = "../nft" }
 
 
 [addresses]
