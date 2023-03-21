@@ -203,6 +203,7 @@ module shoshinlaunchpad::launchpad_module {
                         nft_id: object::id(&nft) 
                 });  
                 vector::push_back(&mut project.nfts, nft);
+                project.total_suppy = project.total_suppy + 1;
         }
 
         /***
@@ -531,7 +532,7 @@ module shoshinlaunchpad::launchpad_module {
         * 
         */
 
-        public entry fun make_buy_nft<T: store + key>(launchpad: &mut Launchpad, coin:&mut Coin<SUI>, project_id: ID, round_id: ID, nft: ID, current_time : u64, ctx: &mut TxContext) {
+        public entry fun make_buy_nft<T: store + key>(launchpad: &mut Launchpad, coin:&mut Coin<SUI>, project_id: ID, round_id: ID, nft: ID, current_time: u64, ctx: &mut TxContext) {
                 // borrow mut from launchpad
                 let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);  
 
