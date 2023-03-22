@@ -149,9 +149,8 @@ module shoshinlaunchpad::launchpad_module {
         * 
         */
 
-        public entry fun make_single_launchpad_project<T: store + key>(launchpad : &mut Launchpad, name : vector<u8>, nft : T,ctx: &mut TxContext) {
+        public entry fun make_single_launchpad_project<T: store + key>(launchpad : &mut Launchpad, name : vector<u8>, ctx: &mut TxContext) {
                 let nfts: vector<T> = vector::empty();
-                vector::push_back(&mut nfts, nft);
                 let size = vector::length(&nfts);
                 let project = Project<T> {
                         id: object::new(ctx),
