@@ -283,7 +283,7 @@ module shoshinlaunchpad::launchpad_module {
         * 
         */
 
-        public entry fun make_delauchpad_project<T: store + key>(launchpad : &mut Launchpad, project_id : ID, commission: u64, receive_commission_address: address, ctx: &mut TxContext) {
+        public entry fun make_delauchpad_project<T: store + key>(launchpad : &mut Launchpad, project_id : ID, commission: u64, receive_commission_address: address, owner_receive_address: address, ctx: &mut TxContext) {
                 //check admin
                 let sender = tx_context::sender(ctx);
                 let admin_address = launchpad.admin;
@@ -304,7 +304,7 @@ module shoshinlaunchpad::launchpad_module {
                 let commission_value = project.total_pool * commission / 100;
                 let commission_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut project.pool), commission_value);
                 let revenue_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut project.pool), project.total_pool - commission_value);
-                transfer::transfer(coin::from_balance(revenue_balance, ctx), project.owner_address);
+                transfer::transfer(coin::from_balance(revenue_balance, ctx), owner_receive_address);
                 transfer::transfer(coin::from_balance(commission_balance, ctx), receive_commission_address);
                 project.total_pool = 0;
                 
