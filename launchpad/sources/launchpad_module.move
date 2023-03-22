@@ -58,8 +58,6 @@ module shoshinlaunchpad::launchpad_module {
                 nfts: vector<T>,
                 total_pool: u64,
                 pool: Coin<SUI>,
-                commission: u64,
-                receive_commission_address : address,
         }
 
         struct Launchpad has key {
@@ -146,13 +144,12 @@ module shoshinlaunchpad::launchpad_module {
         * @type_argument T is type of Nfts
         *
         * @param launchpad is id of launchpad object
-        * @param admin is admin id
         * @param name is name of project
         * @param nft is id of nft want list
         * 
         */
 
-        public entry fun make_single_launchpad_project<T: store + key>(launchpad : &mut Launchpad, admin:&mut Admin, name : vector<u8>, nft : T,ctx: &mut TxContext) {
+        public entry fun make_single_launchpad_project<T: store + key>(launchpad : &mut Launchpad, name : vector<u8>, nft : T,ctx: &mut TxContext) {
                 let nfts: vector<T> = vector::empty();
                 vector::push_back(&mut nfts, nft);
                 let size = vector::length(&nfts);
@@ -165,8 +162,6 @@ module shoshinlaunchpad::launchpad_module {
                         total_pool : 0,
                         nfts: nfts,
                         pool: coin::from_balance(balance::zero<SUI>(), ctx),
-                        commission: 10,
-                        receive_commission_address: admin.receive_address,
                 };
 
                 event::emit(CreateProjectEvent{
@@ -206,19 +201,46 @@ module shoshinlaunchpad::launchpad_module {
                 project.total_suppy = project.total_suppy + 1;
         }
 
+         struct AddNftsToProject has copy, drop {
+                project_id: ID,
+                nfts: u64,
+        }
+
+        /***
+        * @dev make_add_batch_item_single_launchpad
+        *
+        * @type_argument T is type of Nfts
+        *
+        * @param launchpad is id of launchpad object
+        * @param project_id is project id
+        * @param nfts is ids of nfts want list
+        * 
+        */
+        
+        public entry fun make_add_batch_item_single_launchpad<T: store + key>(launchpad : &mut Launchpad, project_id : ID, nfts : vector<T>,ctx: &mut TxContext) {
+                let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);
+                assert!(project.owner_address == tx_context::sender(ctx), EWrongProjectOwner);
+                let nfts_size = vector::length(&nfts);
+                event::emit(AddNftsToProject{
+                        project_id: object::id(project),
+                        nfts: nfts_size,
+                });  
+                vector::append(&mut project.nfts, nfts);
+                project.total_suppy = project.total_suppy + nfts_size;
+        }
+
         /***
         * @dev make_launchpad_project
         *
         * @type_argument T is type of Nfts
         *
         * @param launchpad is id of launchpad object
-        * @param admin is admin id
         * @param name is name of project
         * @param nfts is all nft want launchpad
         * 
         */
         
-        public entry fun make_launchpad_project<T: store + key>(launchpad : &mut Launchpad, admin:&mut Admin, name : vector<u8>, nfts : vector<T>,ctx: &mut TxContext) {
+        public entry fun make_launchpad_project<T: store + key>(launchpad : &mut Launchpad, name : vector<u8>, nfts : vector<T>,ctx: &mut TxContext) {
                 // create project
                 let size = vector::length(&nfts);
                 let project = Project<T> {
@@ -230,8 +252,6 @@ module shoshinlaunchpad::launchpad_module {
                         total_pool : 0,
                         nfts: nfts,
                         pool: coin::from_balance(balance::zero<SUI>(), ctx),
-                        commission: 10,
-                        receive_commission_address: admin.receive_address,
                 };
 
                 // emit event
@@ -263,7 +283,7 @@ module shoshinlaunchpad::launchpad_module {
         * 
         */
 
-        public entry fun make_delauchpad_project<T: store + key>(launchpad : &mut Launchpad, project_id : ID, ctx: &mut TxContext) {
+        public entry fun make_delauchpad_project<T: store + key>(launchpad : &mut Launchpad, project_id : ID, commission: u64, receive_commission_address: address, owner_receive_address: address, ctx: &mut TxContext) {
                 //check admin
                 let sender = tx_context::sender(ctx);
                 let admin_address = launchpad.admin;
@@ -281,11 +301,11 @@ module shoshinlaunchpad::launchpad_module {
                 };
 
                 // callculator commisson
-                let commission_value = project.total_pool * project.commission / 100;
+                let commission_value = project.total_pool * commission / 100;
                 let commission_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut project.pool), commission_value);
                 let revenue_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut project.pool), project.total_pool - commission_value);
-                transfer::transfer(coin::from_balance(revenue_balance, ctx), project.owner_address);
-                transfer::transfer(coin::from_balance(commission_balance, ctx), project.receive_commission_address);
+                transfer::transfer(coin::from_balance(revenue_balance, ctx), owner_receive_address);
+                transfer::transfer(coin::from_balance(commission_balance, ctx), receive_commission_address);
                 project.total_pool = 0;
                 
                 // event
@@ -297,62 +317,6 @@ module shoshinlaunchpad::launchpad_module {
                 });
 
 
-        }
-
-        struct UpdateCommissionProjectEvent has copy, drop {
-                project_id: ID,
-                commission : u64
-        }
-
-        /***
-        * @dev make_update_project_receive_address
-        *
-        * @type_argument T is type of Nfts
-        *
-        * @param launchpad is id of launchpad object
-        * @param project_id is id of project
-        * @param commission is the commission ( % )
-        * 
-        */
-
-        public entry fun make_update_project_commission<T: store + key>(launchpad : &mut Launchpad, project_id : ID, commission : u64,ctx: &mut TxContext) {
-                let sender = tx_context::sender(ctx);
-                let admin_address = launchpad.admin;
-                assert!(admin_address == sender,EAdminOnly);
-                let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);
-                event::emit(UpdateCommissionProjectEvent{
-                        project_id: object::id(project),
-                        commission: commission
-                });
-                project.commission = commission
-        }
-
-        struct UpdateReceiveProjectEvent has copy, drop {
-                project_id: ID,
-                receive_address : address
-        }
-
-        /***
-        * @dev make_update_project_receive_address
-        *
-        * @type_argument T is type of Nfts
-        *
-        * @param launchpad is id of launchpad object
-        * @param project_id is id of project
-        * @param receive_address is the commission address
-        * 
-        */
-
-        public entry fun make_update_project_receive_address<T: store + key>(launchpad : &mut Launchpad, project_id : ID, receive_address : address, ctx: &mut TxContext) {
-                let sender = tx_context::sender(ctx);
-                let admin_address = launchpad.admin;
-                assert!(admin_address == sender,EAdminOnly);
-                let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);
-                event::emit(UpdateReceiveProjectEvent{
-                        project_id: object::id(project),
-                        receive_address,
-                });
-                project.receive_commission_address = receive_address
         }
 
         struct CreateRoundEvent has copy, drop {
@@ -379,8 +343,8 @@ module shoshinlaunchpad::launchpad_module {
         * @param end_time is the time round end
         * @param price is sale price
         * @param is_public is public for all buyer
-        * @param white_list_address is list who can buy
-        * @param white_list_limit is the limit of nft buyer can buy
+        * @param whitelist_address is list who can buy
+        * @param whitelist_limit is the limit of nft buyer can buy
         * 
         */
         public entry fun make_create_round<T: store + key>(
@@ -392,15 +356,15 @@ module shoshinlaunchpad::launchpad_module {
                 end_time: u64, 
                 price: u64, 
                 is_public : bool, 
-                white_list_address: vector<address>, 
-                white_list_limit : vector<u64>,
+                whitelist_address: vector<address>, 
+                whitelist_limit : vector<u64>,
                 ctx: &mut TxContext) {
                 // check admin
                 let sender = tx_context::sender(ctx);
                 let admin_address = launchpad.admin;
-                let whitelist_length = vector::length(&white_list_address);
+                let whitelist_length = vector::length(&whitelist_address);
                 assert!(admin_address == sender,EAdminOnly);
-                assert!(whitelist_length == vector::length(&white_list_limit), EWhiteListInCorrect);
+                assert!(whitelist_length == vector::length(&whitelist_limit), EWhiteListInCorrect);
                 // get project from launchpad
                 let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);
                 assert!(total_suppy < project.total_suppy, EWrongTotalSupply);
@@ -412,8 +376,8 @@ module shoshinlaunchpad::launchpad_module {
                 let new_whitelist: vector<WhiteList> = vector::empty();
                 while(whitelist_index < whitelist_length) {
                         vector::push_back(&mut new_whitelist, WhiteList {
-                                user_address : vector::pop_back(&mut white_list_address),
-                                limit : vector::pop_back(&mut white_list_limit),
+                                user_address : vector::pop_back(&mut whitelist_address),
+                                limit : vector::pop_back(&mut whitelist_limit),
                                 bought : 0,
                         });
                         whitelist_index = whitelist_index + 1;
@@ -462,18 +426,18 @@ module shoshinlaunchpad::launchpad_module {
         * @param launchpad is id of launchpad object
         * @param project_id is id of project
         * @param round_id is id of round
-        * @param white_list_address is list who can buy
-        * @param white_list_limit is the limit of nft buyer can buy
+        * @param whitelist_address is list who can buy
+        * @param whitelist_limit is the limit of nft buyer can buy
         * 
         */
 
-        public entry fun make_update_round_whitelist<T: store + key>(launchpad: &mut Launchpad, project_id: ID, round_id: ID, white_list_address: vector<address>, white_list_limit: vector<u64>, current_time: u64, ctx: &mut TxContext) {
+        public entry fun make_update_round_whitelist<T: store + key>(launchpad: &mut Launchpad, project_id: ID, round_id: ID, whitelist_address: vector<address>, whitelist_limit: vector<u64>, current_time: u64, ctx: &mut TxContext) {
                 // check admin, whitelist rule
                 let sender = tx_context::sender(ctx);
                 let admin_address = launchpad.admin;
-                let whitelist_length = vector::length(&white_list_address) ;
+                let whitelist_length = vector::length(&whitelist_address) ;
                 assert!(admin_address == sender,EAdminOnly);
-                assert!(whitelist_length == vector::length(&white_list_limit),EWhiteListInCorrect);
+                assert!(whitelist_length == vector::length(&whitelist_limit),EWhiteListInCorrect);
 
                 // borrow project from launchpad
                 let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);
@@ -491,8 +455,8 @@ module shoshinlaunchpad::launchpad_module {
                                 let new_whitelist: vector<WhiteList> = vector::empty();
                                 while(whitelist_index < whitelist_length) {
                                         vector::push_back(&mut new_whitelist, WhiteList {
-                                                user_address: vector::pop_back(&mut white_list_address),
-                                                limit:  vector::pop_back(&mut white_list_limit),
+                                                user_address: vector::pop_back(&mut whitelist_address),
+                                                limit:  vector::pop_back(&mut whitelist_limit),
                                                 bought: 0
                                         });
                                         whitelist_index = whitelist_index + 1;
