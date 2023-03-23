@@ -145,13 +145,11 @@ module shoshinlaunchpad::launchpad_module {
         *
         * @param launchpad is id of launchpad object
         * @param name is name of project
-        * @param nft is id of nft want list
         * 
         */
 
-        public entry fun make_single_launchpad_project<T: store + key>(launchpad : &mut Launchpad, name : vector<u8>, nft : T,ctx: &mut TxContext) {
+        public entry fun make_single_launchpad_project<T: store + key>(launchpad : &mut Launchpad, name : vector<u8>, ctx: &mut TxContext) {
                 let nfts: vector<T> = vector::empty();
-                vector::push_back(&mut nfts, nft);
                 let size = vector::length(&nfts);
                 let project = Project<T> {
                         id: object::new(ctx),
@@ -478,7 +476,6 @@ module shoshinlaunchpad::launchpad_module {
         struct BuyNftEvent has copy, drop {
                 project_id: ID,
                 round_id : ID,
-                nft_id : ID,
                 price : u64,
                 buyer : address
         }
@@ -492,11 +489,10 @@ module shoshinlaunchpad::launchpad_module {
         * @param coin paid wallet
         * @param project_id is id of project
         * @param round_id is id of round
-        * @param nft is id of nft want buy
         * 
         */
 
-        public entry fun make_buy_nft<T: store + key>(launchpad: &mut Launchpad, coin:&mut Coin<SUI>, project_id: ID, round_id: ID, nft: ID, current_time: u64, ctx: &mut TxContext) {
+        public entry fun make_buy_nft<T: store + key>(launchpad: &mut Launchpad, coin:&mut Coin<SUI>, project_id: ID, round_id: ID, current_time: u64, ctx: &mut TxContext) {
                 // borrow mut from launchpad
                 let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);  
 
@@ -556,7 +552,6 @@ module shoshinlaunchpad::launchpad_module {
                 event::emit(BuyNftEvent{
                         project_id: object::id(project),
                         round_id,
-                        nft_id : nft,
                         price : current_price,
                         buyer : tx_context::sender(ctx)
                 });
