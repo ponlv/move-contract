@@ -1,5 +1,6 @@
 module shoshinlaunchpad::launchpad_module {
         // use shoshinnft::nft_module::{Self, Nft};
+        use std::type_name::{Self, TypeName};
         use sui::dynamic_object_field as ofield;
         use sui::object::{Self,ID,UID};
         use sui::transfer;
@@ -54,7 +55,7 @@ module shoshinlaunchpad::launchpad_module {
                 name: String,
                 rounds: vector<Round>,
                 owner_address: address,
-                total_suppy: u64,
+                total_supply: u64,
                 nfts: vector<T>,
                 total_pool: u64,
                 pool: Coin<SUI>,
@@ -135,7 +136,8 @@ module shoshinlaunchpad::launchpad_module {
                 project_id: ID,
                 name : String,
                 owner_address: address,
-                total_suppy: u64,
+                total_supply: u64,
+                type : TypeName,
         }
 
         /***
@@ -148,15 +150,21 @@ module shoshinlaunchpad::launchpad_module {
         * 
         */
 
-        public entry fun make_single_launchpad_project<T: store + key>(launchpad : &mut Launchpad, name : vector<u8>, ctx: &mut TxContext) {
+        public entry fun make_single_launchpad_project<T: store + key>(launchpad : &mut Launchpad, owner_address : address, name : vector<u8>, ctx: &mut TxContext) {
+                //check admin
+                let sender = tx_context::sender(ctx);
+                let admin_address = launchpad.admin;
+                assert!(admin_address == sender,EAdminOnly);
+                
+                // create
                 let nfts: vector<T> = vector::empty();
                 let size = vector::length(&nfts);
                 let project = Project<T> {
                         id: object::new(ctx),
                         name: string::utf8(name),
-                        owner_address: tx_context::sender(ctx),
+                        owner_address: owner_address,
                         rounds: vector::empty(),
-                        total_suppy: size,
+                        total_supply: size,
                         total_pool : 0,
                         nfts: nfts,
                         pool: coin::from_balance(balance::zero<SUI>(), ctx),
@@ -166,7 +174,8 @@ module shoshinlaunchpad::launchpad_module {
                         project_id: object::id(&project),
                         name: string::utf8(name),
                         owner_address: project.owner_address,
-                        total_suppy: size,
+                        total_supply: size,
+                        type : type_name::get<T>(),
                 });  
 
                 ofield::add(&mut launchpad.id, object::id(&project), project); 
@@ -196,7 +205,7 @@ module shoshinlaunchpad::launchpad_module {
                         nft_id: object::id(&nft) 
                 });  
                 vector::push_back(&mut project.nfts, nft);
-                project.total_suppy = project.total_suppy + 1;
+                project.total_supply = project.total_supply + 1;
         }
 
          struct AddNftsToProject has copy, drop {
@@ -224,44 +233,7 @@ module shoshinlaunchpad::launchpad_module {
                         nfts: nfts_size,
                 });  
                 vector::append(&mut project.nfts, nfts);
-                project.total_suppy = project.total_suppy + nfts_size;
-        }
-
-        /***
-        * @dev make_launchpad_project
-        *
-        * @type_argument T is type of Nfts
-        *
-        * @param launchpad is id of launchpad object
-        * @param name is name of project
-        * @param nfts is all nft want launchpad
-        * 
-        */
-        
-        public entry fun make_launchpad_project<T: store + key>(launchpad : &mut Launchpad, name : vector<u8>, nfts : vector<T>,ctx: &mut TxContext) {
-                // create project
-                let size = vector::length(&nfts);
-                let project = Project<T> {
-                        id: object::new(ctx),
-                        name: string::utf8(name),
-                        owner_address: tx_context::sender(ctx),
-                        rounds: vector::empty(),
-                        total_suppy: size,
-                        total_pool : 0,
-                        nfts: nfts,
-                        pool: coin::from_balance(balance::zero<SUI>(), ctx),
-                };
-
-                // emit event
-                event::emit(CreateProjectEvent{
-                        project_id: object::id(&project),
-                        name: string::utf8(name),
-                        owner_address: project.owner_address,
-                        total_suppy: size,
-                });  
-
-                // add dynamic field
-                ofield::add(&mut launchpad.id, object::id(&project), project); 
+                project.total_supply = project.total_supply + nfts_size;
         }
 
 
@@ -365,7 +337,7 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(whitelist_length == vector::length(&whitelist_limit), EWhiteListInCorrect);
                 // get project from launchpad
                 let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);
-                assert!(total_suppy < project.total_suppy, EWrongTotalSupply);
+                assert!(total_suppy < project.total_supply, EWrongTotalSupply);
                 let rounds = &mut project.rounds;
                 let round_id = object::new(ctx);
 
@@ -546,7 +518,7 @@ module shoshinlaunchpad::launchpad_module {
                 transfer::transfer(current_nft, tx_context::sender(ctx));
                 let price_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_price);
                 coin::join(&mut project.pool, coin::from_balance(price_balance, ctx));
-                project.total_suppy = project.total_suppy - 1;
+                project.total_supply = project.total_supply - 1;
 
                 // emit event
                 event::emit(BuyNftEvent{
