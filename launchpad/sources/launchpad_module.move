@@ -22,6 +22,7 @@ module shoshinlaunchpad::launchpad_module {
         const ERoundStarted:u64 = 20;
         const EWasOwned:u64 = 21;
         const EWrongTotalSupply:u64 = 22;
+        const ENotEnoughtNft:u64 = 23;
 
 
 
@@ -43,7 +44,7 @@ module shoshinlaunchpad::launchpad_module {
                 start_time: u64,
                 end_time: u64,
                 status : bool,
-                total_suppy: u64,
+                total_supply: u64,
                 whitelist: vector<WhiteList>,
                 price: u64,
                 is_public: bool,
@@ -293,7 +294,7 @@ module shoshinlaunchpad::launchpad_module {
                 project_id: ID,
                 round_id : ID,
                 name : String,
-                total_suppy: u64, 
+                total_supply: u64, 
                 start_time: u64, 
                 end_time: u64, 
                 price: u64, 
@@ -308,7 +309,7 @@ module shoshinlaunchpad::launchpad_module {
         * @param launchpad is id of launchpad object
         * @param project_id is id of project
         * @param name is name of round
-        * @param total_suppy is total nft sale in this round
+        * @param total_supply is total nft sale in this round
         * @param start_time is the time round start
         * @param end_time is the time round end
         * @param price is sale price
@@ -321,7 +322,7 @@ module shoshinlaunchpad::launchpad_module {
                 launchpad: &mut Launchpad,
                 project_id: ID, 
                 name: vector<u8>, 
-                total_suppy: u64, 
+                total_supply: u64, 
                 start_time: u64, 
                 end_time: u64, 
                 price: u64, 
@@ -337,7 +338,7 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(whitelist_length == vector::length(&whitelist_limit), EWhiteListInCorrect);
                 // get project from launchpad
                 let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);
-                assert!(total_suppy < project.total_supply, EWrongTotalSupply);
+                assert!(total_supply < project.total_supply, EWrongTotalSupply);
                 let rounds = &mut project.rounds;
                 let round_id = object::new(ctx);
 
@@ -359,7 +360,7 @@ module shoshinlaunchpad::launchpad_module {
                         round_name: string::utf8(name),
                         start_time,
                         end_time,
-                        total_suppy,
+                        total_supply,
                         status: true,
                         is_public,
                         whitelist: new_whitelist,
@@ -371,7 +372,7 @@ module shoshinlaunchpad::launchpad_module {
                         project_id: project_id,
                         round_id :  object::id(&new_round),
                         name : string::utf8(name),
-                        total_suppy, 
+                        total_supply, 
                         start_time, 
                         end_time, 
                         price, 
@@ -486,6 +487,7 @@ module shoshinlaunchpad::launchpad_module {
                         // checkout time
                         assert!(current_time > current_round.start_time, ETooSoonToBuy);
                         assert!(current_time < current_round.end_time, ETooLateToBuy);
+                        assert!(current_round.total_supply != 0, ENotEnoughtNft);
 
                         // correct round
                         if(id == round_id) {
@@ -506,7 +508,7 @@ module shoshinlaunchpad::launchpad_module {
                                 assert!(current_round.is_public == true || is_can_buy, ECantBuy);
 
                                 // update
-                                current_round.total_suppy = current_round.total_suppy - 1;
+                                current_round.total_supply = current_round.total_supply - 1;
                                 current_price = current_round.price;
                                 project.total_pool = project.total_pool + current_round.price;
                                 break
@@ -563,7 +565,7 @@ module shoshinlaunchpad::launchpad_module {
                         let id = object::id(current_round);
                         if(id == round_id) {
                                 // total supply = 0, status = false
-                                current_round.total_suppy = 0;
+                                current_round.total_supply = 0;
                                 current_round.status = false;
                                 break
                         };
