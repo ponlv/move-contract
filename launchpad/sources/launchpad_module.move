@@ -449,6 +449,7 @@ module shoshinlaunchpad::launchpad_module {
         struct BuyNftEvent has copy, drop {
                 project_id: ID,
                 round_id : ID,
+                nft_id : ID,
                 price : u64,
                 buyer : address
         }
@@ -517,6 +518,7 @@ module shoshinlaunchpad::launchpad_module {
                 };
                 // transfer
                 let current_nft = vector::pop_back(current_nfts);
+                let current_nft_id = object::id(&current_nft);
                 transfer::transfer(current_nft, tx_context::sender(ctx));
                 let price_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_price);
                 coin::join(&mut project.pool, coin::from_balance(price_balance, ctx));
@@ -527,7 +529,8 @@ module shoshinlaunchpad::launchpad_module {
                         project_id: object::id(project),
                         round_id,
                         price : current_price,
-                        buyer : tx_context::sender(ctx)
+                        buyer : tx_context::sender(ctx),
+                        nft_id : current_nft_id,
                 });
         }
 
