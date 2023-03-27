@@ -338,7 +338,7 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(whitelist_length == vector::length(&whitelist_limit), EWhiteListInCorrect);
                 // get project from launchpad
                 let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);
-                assert!(total_supply < project.total_supply, EWrongTotalSupply);
+                assert!(total_supply <= project.total_supply, EWrongTotalSupply);
                 let rounds = &mut project.rounds;
                 let round_id = object::new(ctx);
 
