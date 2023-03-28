@@ -66,7 +66,6 @@ module shoshinlaunchpad::launchpad_module {
                 id: UID,
                 admin : address,
                 name : String,
-                description : String,
         }
 
         fun init(ctx:&mut TxContext) {
@@ -109,7 +108,7 @@ module shoshinlaunchpad::launchpad_module {
         * 
         */
 
-        public entry fun create_launchpad(admin:&mut Admin, name : vector<u8>, description : vector<u8>, ctx: &mut TxContext) {
+        public entry fun create_launchpad(admin:&mut Admin, name : vector<u8>, ctx: &mut TxContext) {
                 // check admin
                 let sender = tx_context::sender(ctx);
                 let admin_address = admin.address;
@@ -117,8 +116,7 @@ module shoshinlaunchpad::launchpad_module {
                 let launchpad = Launchpad {
                         id: object::new(ctx),
                         admin : admin_address,
-                        name: string::utf8(name),
-                        description: string::utf8(description)
+                        name: string::utf8(name)
                 };
 
                 //emit event
@@ -267,7 +265,7 @@ module shoshinlaunchpad::launchpad_module {
                 let length = vector::length(project_nft);
                 while(index < length) {
                         let current_nft = vector::pop_back(project_nft);
-                        transfer::transfer(current_nft, project.owner_address);
+                        transfer::public_transfer(current_nft, project.owner_address);
                         index = index + 1;
                 };
 
@@ -275,8 +273,8 @@ module shoshinlaunchpad::launchpad_module {
                 let commission_value = project.total_pool * commission / 100;
                 let commission_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut project.pool), commission_value);
                 let revenue_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut project.pool), project.total_pool - commission_value);
-                transfer::transfer(coin::from_balance(revenue_balance, ctx), owner_receive_address);
-                transfer::transfer(coin::from_balance(commission_balance, ctx), receive_commission_address);
+                transfer::public_transfer(coin::from_balance(revenue_balance, ctx), owner_receive_address);
+                transfer::public_transfer(coin::from_balance(commission_balance, ctx), receive_commission_address);
                 project.total_pool = 0;
                 
                 // event
@@ -423,18 +421,17 @@ module shoshinlaunchpad::launchpad_module {
                         let current_round = vector::borrow_mut(&mut project.rounds, index);
                         assert!(current_time < current_round.start_time, ERoundStarted);
                         let id = object::id(current_round);
+                        let current_whitelist = &mut current_round.whitelist;
                         if(id == round_id) {
                                 let whitelist_index = 0;
-                                let new_whitelist: vector<WhiteList> = vector::empty();
                                 while(whitelist_index < whitelist_length) {
-                                        vector::push_back(&mut new_whitelist, WhiteList {
+                                        vector::push_back(current_whitelist, WhiteList {
                                                 user_address: vector::pop_back(&mut whitelist_address),
                                                 limit:  vector::pop_back(&mut whitelist_limit),
                                                 bought: 0
                                         });
                                         whitelist_index = whitelist_index + 1;
                                 };
-                                current_round.whitelist = new_whitelist;
                                 updated_round_id = id;
                                 break
                         };
@@ -523,7 +520,7 @@ module shoshinlaunchpad::launchpad_module {
                 // transfer
                 let current_nft = vector::pop_back(current_nfts);
                 let current_nft_id = object::id(&current_nft);
-                transfer::transfer(current_nft, tx_context::sender(ctx));
+                transfer::public_transfer(current_nft, tx_context::sender(ctx));
                 let price_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_price);
                 coin::join(&mut project.pool, coin::from_balance(price_balance, ctx));
                 project.total_supply = project.total_supply - 1;

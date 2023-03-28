@@ -288,8 +288,8 @@ module shoshinnft::nft_module{
             });
 
             let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
-            transfer::transfer(coin::from_balance(mint_balance,ctx), admin.receive_address);
-            transfer::transfer(new_nft,sender);
+            transfer::public_transfer(coin::from_balance(mint_balance,ctx), admin.receive_address);
+            transfer::public_transfer(new_nft,sender);
 
         } else{
             let index = 0;
@@ -337,8 +337,8 @@ module shoshinnft::nft_module{
                     });
 
                     let mint_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_round_mint_fee);
-                    transfer::transfer(coin::from_balance(mint_balance,ctx), admin.receive_address);
-                    transfer::transfer(new_nft,sender);
+                    transfer::public_transfer(coin::from_balance(mint_balance,ctx), admin.receive_address);
+                    transfer::public_transfer(new_nft,sender);
                 };
 
                 index = index + 1;
@@ -353,7 +353,7 @@ module shoshinnft::nft_module{
     public entry fun transfer_nft(nft: Nft, receive_address: address, ctx:&mut TxContext){
         let sender = sender(ctx);
         assert!(nft.owner == sender, ENotNftOwner);
-        transfer::transfer(nft,receive_address);
+        transfer::public_transfer(nft,receive_address);
     }
 
 }
