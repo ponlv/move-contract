@@ -386,6 +386,8 @@ module shoshinlaunchpad::launchpad_module {
         struct UpdateRoundWhitelistEvent has copy, drop {
                 project_id: ID,
                 round_id : ID,
+                whitelist_addresses : vector<address>,
+                whitelist_limits: vector<u64>
         }
 
 
@@ -443,6 +445,8 @@ module shoshinlaunchpad::launchpad_module {
                 event::emit(UpdateRoundWhitelistEvent{
                         project_id: object::id(project),
                         round_id : updated_round_id,
+                        whitelist_addresses : whitelist_address,
+                        whitelist_limits: whitelist_limit,
                 });
         }
 
