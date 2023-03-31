@@ -18,8 +18,9 @@ module shoshinmarketplace::marketplace_module {
         const EWrongOfferPrice: u64 = 12;
         const EListWasEnded:u64 = 13;
         const EBidAmountIncorrect:u64 = 14;
-        const ESoonBid:u64 = 14;
-        const ELateBid:u64 = 15;
+        const ESoonBid:u64 = 15;
+        const ELateBid:u64 = 16;
+        const EWrongPermission = 17;
 
 
         struct Admin has key {
@@ -324,7 +325,9 @@ module shoshinmarketplace::marketplace_module {
         }
 
         public entry fun make_delete_offer<T: store + key>(marketplace: &mut Marketplace, nft_id: ID, offer_id: u64, ctx: &mut TxContext) {
-                let List<T> { id : _, seller: _, item: _, price : _, current_offer: _, end_time: _, last_offer_id: _ } = ofield::borrow_mut(&mut marketplace.id, nft_id);
+                let List<T> { id : _, seller, item: _, price : _, current_offer: _, end_time: _, last_offer_id: _ } = ofield::borrow_mut(&mut marketplace.id, nft_id);
+                assert!(tx_context::sender(ctx) != seller, EWrongPermission);
+                assert!(tx_context::sender(ctx) != marketplace.admin, EWrongPermission);
                 let ListOffer<Coin<SUI>> {id: _, offers} = ofield::borrow_mut(&mut marketplace.id, 0);
                 let index = 0;
                 let duration = vector::length(offers);
