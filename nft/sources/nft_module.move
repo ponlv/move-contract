@@ -1,6 +1,6 @@
 module shoshinnft::nft_module{
     //import module
-    use std::string::{Self,String};
+    use std::string::{Self,String,utf8};
     use sui::tx_context::{TxContext,sender};
     use sui::transfer;
     use sui::event;
@@ -10,6 +10,8 @@ module shoshinnft::nft_module{
     use sui::coin::{Self,Coin};
     use sui::sui::SUI;
     use sui::balance::{Self,Balance};
+    use sui::package;
+    use sui::display;
    
    //constant
    const EAdminOnly:u64 = 0;
@@ -64,12 +66,13 @@ module shoshinnft::nft_module{
     /*---------------NFT---------------*/
     struct Nft has key,store {
         id: UID,
-        name: String,
-        description: String,
-        owner: address,
         round_id: ID,
         url: Url,
+        owner: address
     }
+
+    /// One-Time-Witness for the module.
+    struct NFT_MODULE has drop {}
 
     struct MintNft has copy,drop {
         nft_id: ID,
@@ -78,7 +81,7 @@ module shoshinnft::nft_module{
     }
 
 
-    fun init(ctx:&mut TxContext) {
+    fun init(otw: NFT_MODULE,ctx:&mut TxContext) {
         //set address of deployer to admin
         let admin = Admin{
             id: object::new(ctx),
@@ -90,6 +93,35 @@ module shoshinnft::nft_module{
             rounds: vector::empty(),
             description: string::utf8(b"This object use to save all the rounds")
         };
+
+        let keys = vector[
+            utf8(b"name"),
+            utf8(b"description"),
+            utf8(b"url"),
+            utf8(b"website")
+        ];
+
+        let values = vector[
+            utf8(b"Shoshin NFT"),
+            utf8(b"Shoshin NFT"),
+            utf8(b"{url}"),
+            utf8(b"https://shoshinsquare.com/"),
+        ];
+
+        // Claim the `Publisher` for the package!
+        let publisher = package::claim(otw, ctx);
+
+        // Get a new `Display` object for the `Nft` type.
+        let display = display::new_with_fields<Nft>(
+            &publisher, keys, values, ctx
+        );
+
+        // Commit first version of `Display` to apply changes.
+        display::update_version(&mut display);       
+ 
+        transfer::public_transfer(publisher, sender(ctx));
+        transfer::public_transfer(display, sender(ctx));
+
         // Admin,Round objects will be saved on global storage
         // after the smart contract deployment we will get the ID to access it
         transfer::share_object(admin);
@@ -228,8 +260,6 @@ module shoshinnft::nft_module{
         url: vector<u8>,  
         current_time: u64, 
         coin:&mut Coin<SUI>,
-        nft_name: vector<u8>,
-        nft_description: vector<u8>,
         ctx:&mut TxContext) {
         
         // get info
@@ -273,11 +303,9 @@ module shoshinnft::nft_module{
             //mint new NFT for sender
             let new_nft = Nft{
             id: object::new(ctx),
-            name: string::utf8(nft_name),
-            description: string::utf8(nft_description),
-            owner: sender,
             round_id: object::uid_to_inner(&current_round.id),
             url: url::new_unsafe_from_bytes(url),
+            owner: sender,
             };
 
             // emit event
@@ -322,11 +350,9 @@ module shoshinnft::nft_module{
                     // create nft object
                     let new_nft = Nft{
                         id: object::new(ctx),
-                        name: string::utf8(nft_name),
-                        description: string::utf8(nft_description),
-                        owner: sender,
                         round_id: object::uid_to_inner(&current_round.id),
                         url: url::new_unsafe_from_bytes(url),
+                        owner: sender,
                     };
                     
                     // emit event
