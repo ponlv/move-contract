@@ -3,10 +3,10 @@ name = "shoshinmarketplace"
 version = "0.0.0"
 
 [dependencies]
-Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework", rev = "devnet" }
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir="crates/sui-framework/packages/sui-framework/", rev = "devnet" }
 
 [addresses]
 shoshinmarketplace = "0x0"
-sui =  "0000000000000000000000000000000000000002"
+sui =  "0x2"
 
 
