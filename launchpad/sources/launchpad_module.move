@@ -25,7 +25,6 @@ module shoshinlaunchpad::launchpad_module {
         const ENotEnoughtNft:u64 = 23;
 
 
-
         struct Admin has key {
                 id: UID,
                 address: address,
@@ -195,6 +194,17 @@ module shoshinlaunchpad::launchpad_module {
         * @param nft is id of nft want list
         * 
         */
+
+        public fun deposit<T: store + key>(launchpad : &mut Launchpad, project_id : ID, nft : T,ctx: &mut TxContext) {
+                let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);
+                assert!(project.owner_address == tx_context::sender(ctx), EWrongProjectOwner);
+                event::emit(AddNftToProject{
+                        project_id: object::id(project),
+                        nft_id: object::id(&nft) 
+                });  
+                vector::push_back(&mut project.nfts, nft);
+                project.total_supply = project.total_supply + 1;
+        }
 
         public entry fun make_add_item_single_launchpad<T: store + key>(launchpad : &mut Launchpad, project_id : ID, nft : T,ctx: &mut TxContext) {
                 let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);
