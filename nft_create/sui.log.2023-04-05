@@ -1,0 +1,3 @@
+2023-04-05T18:13:01.664810Z  INFO sui::client_commands: devnet => https://fullnode.devnet.sui.io:443 (active)
+2023-04-05T18:13:01.666096Z  INFO sui::client_commands: testnet => https://fullnode.testnet.sui.io:443
+2023-04-05T18:13:20.783400Z  INFO sui::client_commands: Active environment switched to [testnet]

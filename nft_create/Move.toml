@@ -1,0 +1,12 @@
+[package]
+name = "test_module"
+version = "0.0.1"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir="crates/sui-framework/packages/sui-framework/", rev = "devnet" }
+shoshinlaunchpad = { local = "../launchpad" }
+
+[addresses]
+test_module =  "0x0"
+sui =  "0x2"
+

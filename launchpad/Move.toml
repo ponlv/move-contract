@@ -7,11 +7,11 @@ version = "0.0.0"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir="crates/sui-framework/packages/sui-framework/", rev = "devnet" }
-# shoshinnft = { local = "../nft" }
+# test_module = { local = "../nft_create" }
 
 
 [addresses]
-shoshinlaunchpad =  "0x0"
+shoshinlaunchpad =  "0x7b21dc9a673c741e111b330f54a48ea6ffe7a08617f6f98a6b57e4a9a960d9dc"
 sui = "0x2"
 
 
