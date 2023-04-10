@@ -1,5 +1,5 @@
 [package]
-name = "test_module"
+name = "launchpad_nft"
 version = "0.0.1"
 
 [dependencies]
@@ -7,6 +7,6 @@ Sui = { git = "https://github.com/MystenLabs/sui.git", subdir="crates/sui-framew
 shoshinlaunchpad = { local = "../launchpad" }
 
 [addresses]
-test_module =  "0x0"
+launchpad_nft =  "0x0"
 sui =  "0x2"
 
