@@ -23,7 +23,7 @@ module shoshinlaunchpad::launchpad_module {
         const EWasOwned:u64 = 21;
         const EWrongTotalSupply:u64 = 22;
         const ENotEnoughtNft:u64 = 23;
-
+        const EBuyLimit:u64 = 24;
 
         struct Admin has key {
                 id: UID,
@@ -37,6 +37,12 @@ module shoshinlaunchpad::launchpad_module {
                 bought: u64,
         }
 
+        struct PublicWhiteList has store,drop {
+                user_address: address,
+                limit: u64,
+                bought: u64,
+        }
+
         struct Round has key,store {
                 id: UID,
                 round_name: String,
@@ -45,8 +51,11 @@ module shoshinlaunchpad::launchpad_module {
                 status : bool,
                 total_supply: u64,
                 whitelist: vector<WhiteList>,
+                public_whitelist: vector<PublicWhiteList>,
+                holders : vector<address>,
                 price: u64,
                 is_public: bool,
+                public_mint_limit : u64,
         }
 
 
@@ -307,6 +316,7 @@ module shoshinlaunchpad::launchpad_module {
                 end_time: u64, 
                 price: u64, 
                 is_public : bool,
+                public_mint_limit: u64,
         }
 
         /***
@@ -337,6 +347,7 @@ module shoshinlaunchpad::launchpad_module {
                 is_public : bool, 
                 whitelist_address: vector<address>, 
                 whitelist_limit : vector<u64>,
+                public_mint_limit: u64,
                 ctx: &mut TxContext) {
                 // check admin
                 let sender = tx_context::sender(ctx);
@@ -372,7 +383,10 @@ module shoshinlaunchpad::launchpad_module {
                         status: true,
                         is_public,
                         whitelist: new_whitelist,
+                        public_whitelist: vector::empty(),
+                        holders: vector::empty(),
                         price,
+                        public_mint_limit
                 };
 
                 // emit event
@@ -385,6 +399,7 @@ module shoshinlaunchpad::launchpad_module {
                         end_time, 
                         price, 
                         is_public,
+                        public_mint_limit,
                 });
 
                 // push new round to old round list
@@ -495,18 +510,21 @@ module shoshinlaunchpad::launchpad_module {
                         let id = object::id(current_round);
                         let is_can_buy = false;
                         let current_whitelist = &mut current_round.whitelist;
-                        
-                        // checkout time
-                        assert!(current_time > current_round.start_time, ETooSoonToBuy);
-                        assert!(current_time < current_round.end_time, ETooLateToBuy);
-                        assert!(current_round.total_supply != 0, ENotEnoughtNft);
+                        let current_public_whitelist =  &mut current_round.public_whitelist;
+                        let current_public_mint_limit = &mut current_round.public_mint_limit;
+                        let current_holders = &mut current_round.holders;
 
                         // correct round
                         if(id == round_id) {
 
-                        // check whitelist
-                        let whitelist_length = vector::length(current_whitelist);
-                        let whitelist_index = 0;
+                                // checkout time
+                                assert!(current_time > current_round.start_time, ETooSoonToBuy);
+                                assert!(current_time < current_round.end_time, ETooLateToBuy);
+                                assert!(current_round.total_supply != 0, ENotEnoughtNft);
+
+                                // check whitelist
+                                let whitelist_length = vector::length(current_whitelist);
+                                let whitelist_index = 0;
                                 while(whitelist_index < whitelist_length) {
                                         let current_element = vector::borrow_mut(current_whitelist, whitelist_index);
                                         // conndition user in whitelist and bought < limit, add bought and check whitelist
@@ -517,6 +535,46 @@ module shoshinlaunchpad::launchpad_module {
                                         };
                                         whitelist_index = whitelist_index + 1;
                                 };
+                                if (current_round.is_public == true) {
+                                        let public_whitelist_index = 0;
+                                        let public_whitelist_length = vector::length(current_public_whitelist);
+
+                                        // check existed ?
+                                        let check_existed_public_whitelist_index = 0;
+                                        let existed = false;
+                                        while(check_existed_public_whitelist_index < *current_public_mint_limit) {
+                                                if(vector::contains<address>(current_holders, &tx_context::sender(ctx))) {
+                                                        existed = true;
+                                                        break
+                                                };
+
+                                                check_existed_public_whitelist_index = check_existed_public_whitelist_index + 1;
+                                        };
+
+                                        // push
+                                        if(existed == false) {
+                                                vector::push_back(current_public_whitelist, PublicWhiteList {
+                                                        user_address: tx_context::sender(ctx),
+                                                        limit: *current_public_mint_limit,
+                                                        bought: 1
+                                                });
+                                                vector::push_back(current_holders, tx_context::sender(ctx));
+                                                is_can_buy = true;
+                                        };
+
+                                        // add bought
+                                        while(public_whitelist_index < public_whitelist_length && existed == true)  {
+                                                let current_public_round_element = vector::borrow_mut(current_public_whitelist, public_whitelist_index);
+                                                if(current_public_round_element.user_address == tx_context::sender(ctx)) {
+                                                        assert!(current_public_round_element.limit > current_public_round_element.bought, EBuyLimit);
+                                                        is_can_buy = true;
+                                                        current_public_round_element.bought = current_public_round_element.bought + 1;
+                                                        break
+                                                };
+                                                public_whitelist_index = public_whitelist_index + 1;
+                                        }; 
+                                };
+
                                 assert!(current_round.is_public == true || is_can_buy, ECantBuy);
 
                                 // update

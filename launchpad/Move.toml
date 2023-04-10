@@ -1,6 +1,7 @@
 [package]
 name = "shoshinlaunchpad"
 version = "0.0.0"
+published-at = "0x0"
 
 
 
@@ -11,8 +12,7 @@ Sui = { git = "https://github.com/MystenLabs/sui.git", subdir="crates/sui-framew
 
 
 [addresses]
-shoshinlaunchpad =  "0x7b21dc9a673c741e111b330f54a48ea6ffe7a08617f6f98a6b57e4a9a960d9dc"
+shoshinlaunchpad =  "0x0"
 sui = "0x2"
-
 
 
