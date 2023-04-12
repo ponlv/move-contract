@@ -1,18 +1,11 @@
 [package]
-name = "shoshinlaunchpad"
-version = "0.0.0"
-published-at = "0x0"
-
-
-
+name = "mintnft"
+version = "0.0.1"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir="crates/sui-framework/packages/sui-framework/", rev = "devnet" }
-# test_module = { local = "../nft_create" }
-
 
 [addresses]
-shoshinlaunchpad =  "0x0"
-sui = "0x2"
-
+mintnft =  "0x0"
+sui =  "0x2"
 

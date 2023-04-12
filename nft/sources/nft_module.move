@@ -98,7 +98,10 @@ module shoshinnft::nft_module{
             utf8(b"name"),
             utf8(b"description"),
             utf8(b"url"),
-            utf8(b"website")
+            utf8(b"project_url"),
+            utf8(b"image_url"),
+            utf8(b"img_url"),
+            utf8(b"creator"),
         ];
 
         let values = vector[
@@ -106,6 +109,9 @@ module shoshinnft::nft_module{
             utf8(b"Shoshin NFT"),
             utf8(b"{url}"),
             utf8(b"https://shoshinsquare.com/"),
+            utf8(b"{url}"),
+            utf8(b"{url}"),
+            utf8(b"Shoshin square")
         ];
 
         // Claim the `Publisher` for the package!
@@ -257,7 +263,7 @@ module shoshinnft::nft_module{
     public entry fun buy_nft(
         admin:&mut Admin, 
         allRounds:&mut AllRounds, 
-        url: vector<u8>,  
+        url: String,  
         current_time: u64, 
         coin:&mut Coin<SUI>,
         ctx:&mut TxContext) {
@@ -304,7 +310,7 @@ module shoshinnft::nft_module{
             let new_nft = Nft{
             id: object::new(ctx),
             round_id: object::uid_to_inner(&current_round.id),
-            url: url::new_unsafe_from_bytes(url),
+            url: url::new_unsafe(string::to_ascii(url)),
             owner: sender,
             };
 
@@ -351,7 +357,7 @@ module shoshinnft::nft_module{
                     let new_nft = Nft{
                         id: object::new(ctx),
                         round_id: object::uid_to_inner(&current_round.id),
-                        url: url::new_unsafe_from_bytes(url),
+                        url: url::new_unsafe(string::to_ascii(url)),
                         owner: sender,
                     };
                     
