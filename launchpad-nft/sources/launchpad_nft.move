@@ -1,5 +1,5 @@
 module launchpad_nft::sui_zero_testnet{
-    use sui::tx_context::{TxContext,sender};
+ use sui::tx_context::{TxContext,sender};
     use std::string::{Self,String,utf8};
     use sui::package;
     use sui::display;
@@ -9,7 +9,13 @@ module launchpad_nft::sui_zero_testnet{
     use sui::transfer;
     use std::vector;
 
+    //constant
+    const EAdminOnly:u64 = 0;
 
+    struct Admin has key {
+        id: UID,
+        address: address,
+    }
 
     struct Nft has key,store {
         id: UID,
@@ -19,6 +25,17 @@ module launchpad_nft::sui_zero_testnet{
     struct SUI_ZERO_TESTNET has drop {}
    
     fun init(otw: SUI_ZERO_TESTNET, ctx:&mut TxContext){
+        
+        let admin = Admin{
+            id: object::new(ctx),
+            address: sender(ctx),           
+        };
+        
+        let new_nft = Nft{
+            id: object::new(ctx),
+            owner: sender(ctx),
+        };
+
         let keys = vector[
             utf8(b"name"),
             utf8(b"description"),
@@ -50,22 +67,18 @@ module launchpad_nft::sui_zero_testnet{
  
     transfer::public_transfer(publisher, sender(ctx));
     transfer::public_transfer(display, sender(ctx));
+    
+    transfer::public_transfer(new_nft,sender(ctx));
+
+    transfer::share_object(admin); 
     }
 
-    public entry fun mint_only_one(ctx:&mut TxContext){
-        // get info
-        let sender = sender(ctx);
-            let new_nft = Nft{
-                id: object::new(ctx),
-                owner: sender
-            };
-            transfer::public_transfer(new_nft,sender(ctx))
-    }
-
-    public entry fun deposit_multiple_nfts_into_launchpad(lauchpad:&mut Launchpad, project_id: ID, mint_amount: u64, ctx:&mut TxContext){
+    public entry fun deposit_multiple_nfts_into_launchpad(admin:&mut Admin,lauchpad:&mut Launchpad, project_id: ID, mint_amount: u64, ctx:&mut TxContext){
         let amount = 0;
         // get info
         let sender = sender(ctx);
+
+        assert!(sender == admin.address,EAdminOnly);
 
         while(amount < mint_amount){
             //mint nft

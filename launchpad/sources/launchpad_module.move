@@ -536,7 +536,6 @@ module shoshinlaunchpad::launchpad_module {
                                         whitelist_index = whitelist_index + 1;
                                 };
                                 if (current_round.is_public == true) {
-                                        let public_whitelist_index = 0;
                                         let public_whitelist_length = vector::length(current_public_whitelist);
 
                                         // check existed ?
@@ -563,6 +562,7 @@ module shoshinlaunchpad::launchpad_module {
                                         };
 
                                         // add bought
+                                        let public_whitelist_index = 0;
                                         while(public_whitelist_index < public_whitelist_length && existed == true)  {
                                                 let current_public_round_element = vector::borrow_mut(current_public_whitelist, public_whitelist_index);
                                                 if(current_public_round_element.user_address == tx_context::sender(ctx)) {
