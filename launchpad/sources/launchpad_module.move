@@ -50,9 +50,6 @@ module shoshinlaunchpad::launchpad_module {
                 end_time: u64,
                 status : bool,
                 total_supply: u64,
-                whitelist: vector<WhiteList>,
-                public_whitelist: vector<PublicWhiteList>,
-                holders : vector<address>,
                 price: u64,
                 is_public: bool,
                 public_mint_limit : u64,
@@ -157,23 +154,21 @@ module shoshinlaunchpad::launchpad_module {
         * 
         */
 
-        public entry fun make_single_launchpad_project<T: store + key>(launchpad : &mut Launchpad, owner_address : address, name : String, ctx: &mut TxContext) {
+        public entry fun make_single_launchpad_project<T: store + key>(launchpad : &mut Launchpad, owner_address : address, name : String, total_supply: u64, ctx: &mut TxContext) {
                 //check admin
                 let sender = tx_context::sender(ctx);
                 let admin_address = launchpad.admin;
                 assert!(admin_address == sender,EAdminOnly);
                 
                 // create
-                let nfts: vector<T> = vector::empty();
-                let size = vector::length(&nfts);
                 let project = Project<T> {
                         id: object::new(ctx),
                         name: name,
                         owner_address: owner_address,
                         rounds: vector::empty(),
-                        total_supply: size,
+                        total_supply: total_supply,
                         total_pool : 0,
-                        nfts: nfts,
+                        nfts: vector::empty(),
                         pool: coin::from_balance(balance::zero<SUI>(), ctx),
                 };
 
@@ -181,7 +176,7 @@ module shoshinlaunchpad::launchpad_module {
                         project_id: object::id(&project),
                         name: name,
                         owner_address: project.owner_address,
-                        total_supply: size,
+                        total_supply: total_supply,
                         type : type_name::get<T>(),
                 });  
 
@@ -304,7 +299,6 @@ module shoshinlaunchpad::launchpad_module {
                         total_pool: project.total_pool,
                 });
 
-
         }
 
         struct CreateRoundEvent has copy, drop {
@@ -353,7 +347,7 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(admin_address == sender,EAdminOnly);
                 // get project from launchpad
                 let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);
-                assert!(total_supply <= project.total_supply, EWrongTotalSupply);
+                // assert!(total_supply <= project.total_supply, EWrongTotalSupply);
                 let rounds = &mut project.rounds;
                 let round_id = object::new(ctx);
 
@@ -366,9 +360,6 @@ module shoshinlaunchpad::launchpad_module {
                         total_supply,
                         status: true,
                         is_public,
-                        whitelist: vector::empty(),
-                        public_whitelist: vector::empty(),
-                        holders: vector::empty(),
                         price,
                         public_mint_limit
                 };
@@ -390,76 +381,9 @@ module shoshinlaunchpad::launchpad_module {
                 vector::push_back(rounds, new_round);            
         }
 
-        struct UpdateRoundWhitelistEvent has copy, drop {
-                project_id: ID,
-                round_id : ID,
-                whitelist_addresses : vector<address>,
-                whitelist_limits: vector<u64>
-        }
-
-
-        /***
-        * @dev make_update_round_whitelist
-        *
-        * @type_argument T is type of Nfts
-        *
-        * @param launchpad is id of launchpad object
-        * @param project_id is id of project
-        * @param round_id is id of round
-        * @param whitelist_address is list who can buy
-        * @param whitelist_limit is the limit of nft buyer can buy
-        * 
-        */
-
-        public entry fun make_update_round_whitelist<T: store + key>(launchpad: &mut Launchpad, project_id: ID, round_id: ID, whitelist_address: vector<address>, whitelist_limit: vector<u64>, current_time: u64, ctx: &mut TxContext) {
-                // check admin, whitelist rule
-                let sender = tx_context::sender(ctx);
-                let admin_address = launchpad.admin;
-                let whitelist_length = vector::length(&whitelist_address) ;
-                assert!(admin_address == sender,EAdminOnly);
-                assert!(whitelist_length == vector::length(&whitelist_limit),EWhiteListInCorrect);
-
-                // borrow project from launchpad
-                let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);
-                
-                // create a loop to get the correct round with round id and update whitelist to new witelist
-                let index = 0;
-                let length = vector::length(&project.rounds);
-                let updated_round_id : ID = object::id(project);
-                while(index < length){
-                        let current_round = vector::borrow_mut(&mut project.rounds, index);
-                        assert!(current_time < current_round.start_time, ERoundStarted);
-                        let id = object::id(current_round);
-                        let current_whitelist = &mut current_round.whitelist;
-                        if(id == round_id) {
-                                let whitelist_index = 0;
-                                while(whitelist_index < whitelist_length) {
-                                        vector::push_back(current_whitelist, WhiteList {
-                                                user_address: vector::pop_back(&mut whitelist_address),
-                                                limit:  vector::pop_back(&mut whitelist_limit),
-                                                bought: 0
-                                        });
-                                        whitelist_index = whitelist_index + 1;
-                                };
-                                updated_round_id = id;
-                                break
-                        };
-                        index = index + 1;
-                };
-
-                // emit event
-                event::emit(UpdateRoundWhitelistEvent{
-                        project_id: object::id(project),
-                        round_id : updated_round_id,
-                        whitelist_addresses : whitelist_address,
-                        whitelist_limits: whitelist_limit,
-                });
-        }
-
         struct BuyNftEvent has copy, drop {
                 project_id: ID,
                 round_id : ID,
-                nft_id : ID,
                 price : u64,
                 buyer : address
         }
@@ -483,7 +407,6 @@ module shoshinlaunchpad::launchpad_module {
                 // check owner
                 assert!(project.owner_address != tx_context::sender(ctx), EWasOwned);
                 let current_rounds = &mut project.rounds;
-                let current_nfts = &mut project.nfts;
 
                 // get correct round
                 let index = 0;
@@ -492,75 +415,13 @@ module shoshinlaunchpad::launchpad_module {
                 while(index < length){
                         let current_round = vector::borrow_mut(current_rounds, index);
                         let id = object::id(current_round);
-                        let is_can_buy = false;
-                        let current_whitelist = &mut current_round.whitelist;
-                        let current_public_whitelist =  &mut current_round.public_whitelist;
-                        let current_public_mint_limit = &mut current_round.public_mint_limit;
-                        let current_holders = &mut current_round.holders;
 
                         // correct round
                         if(id == round_id) {
-
                                 // checkout time
                                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
                                 assert!(current_time < current_round.end_time, ETooLateToBuy);
                                 assert!(current_round.total_supply != 0, ENotEnoughtNft);
-
-                                // check whitelist
-                                let whitelist_length = vector::length(current_whitelist);
-                                let whitelist_index = 0;
-                                while(whitelist_index < whitelist_length) {
-                                        let current_element = vector::borrow_mut(current_whitelist, whitelist_index);
-                                        // conndition user in whitelist and bought < limit, add bought and check whitelist
-                                        if(current_element.user_address == tx_context::sender(ctx) && current_element.limit > current_element.bought) {
-                                                is_can_buy = true;
-                                                current_element.bought = current_element.bought + 1;
-                                                break
-                                        };
-                                        whitelist_index = whitelist_index + 1;
-                                };
-                                if (current_round.is_public == true) {
-                                        let public_whitelist_length = vector::length(current_public_whitelist);
-
-                                        // check existed ?
-                                        let check_existed_public_whitelist_index = 0;
-                                        let existed = false;
-                                        while(check_existed_public_whitelist_index < *current_public_mint_limit) {
-                                                if(vector::contains<address>(current_holders, &tx_context::sender(ctx))) {
-                                                        existed = true;
-                                                        break
-                                                };
-
-                                                check_existed_public_whitelist_index = check_existed_public_whitelist_index + 1;
-                                        };
-
-                                        // push
-                                        if(existed == false) {
-                                                vector::push_back(current_public_whitelist, PublicWhiteList {
-                                                        user_address: tx_context::sender(ctx),
-                                                        limit: *current_public_mint_limit,
-                                                        bought: 1
-                                                });
-                                                vector::push_back(current_holders, tx_context::sender(ctx));
-                                                is_can_buy = true;
-                                        };
-
-                                        // add bought
-                                        let public_whitelist_index = 0;
-                                        while(public_whitelist_index < public_whitelist_length && existed == true)  {
-                                                let current_public_round_element = vector::borrow_mut(current_public_whitelist, public_whitelist_index);
-                                                if(current_public_round_element.user_address == tx_context::sender(ctx)) {
-                                                        assert!(current_public_round_element.limit > current_public_round_element.bought, EBuyLimit);
-                                                        is_can_buy = true;
-                                                        current_public_round_element.bought = current_public_round_element.bought + 1;
-                                                        break
-                                                };
-                                                public_whitelist_index = public_whitelist_index + 1;
-                                        }; 
-                                };
-
-                                assert!(current_round.is_public == true || is_can_buy, ECantBuy);
-
                                 // update
                                 current_round.total_supply = current_round.total_supply - 1;
                                 current_price = current_round.price;
@@ -570,9 +431,6 @@ module shoshinlaunchpad::launchpad_module {
                         index = index + 1;
                 };
                 // transfer
-                let current_nft = vector::pop_back(current_nfts);
-                let current_nft_id = object::id(&current_nft);
-                transfer::public_transfer(current_nft, tx_context::sender(ctx));
                 let price_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), current_price);
                 coin::join(&mut project.pool, coin::from_balance(price_balance, ctx));
                 project.total_supply = project.total_supply - 1;
@@ -583,9 +441,9 @@ module shoshinlaunchpad::launchpad_module {
                         round_id,
                         price : current_price,
                         buyer : tx_context::sender(ctx),
-                        nft_id : current_nft_id,
                 });
         }
+
 
         struct CloseRoundEvent has copy, drop {
                 project_id: ID,
