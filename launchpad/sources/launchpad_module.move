@@ -345,33 +345,17 @@ module shoshinlaunchpad::launchpad_module {
                 end_time: u64, 
                 price: u64, 
                 is_public : bool, 
-                whitelist_address: vector<address>, 
-                whitelist_limit : vector<u64>,
                 public_mint_limit: u64,
                 ctx: &mut TxContext) {
                 // check admin
                 let sender = tx_context::sender(ctx);
                 let admin_address = launchpad.admin;
-                let whitelist_length = vector::length(&whitelist_address);
                 assert!(admin_address == sender,EAdminOnly);
-                assert!(whitelist_length == vector::length(&whitelist_limit), EWhiteListInCorrect);
                 // get project from launchpad
                 let project = ofield::borrow_mut<ID, Project<T>>(&mut launchpad.id, project_id);
                 assert!(total_supply <= project.total_supply, EWrongTotalSupply);
                 let rounds = &mut project.rounds;
                 let round_id = object::new(ctx);
-
-                // combie address and limit to whitelist
-                let whitelist_index = 0;
-                let new_whitelist: vector<WhiteList> = vector::empty();
-                while(whitelist_index < whitelist_length) {
-                        vector::push_back(&mut new_whitelist, WhiteList {
-                                user_address : vector::pop_back(&mut whitelist_address),
-                                limit : vector::pop_back(&mut whitelist_limit),
-                                bought : 0,
-                        });
-                        whitelist_index = whitelist_index + 1;
-                };
 
                 // create new row
                 let new_round = Round {
@@ -382,7 +366,7 @@ module shoshinlaunchpad::launchpad_module {
                         total_supply,
                         status: true,
                         is_public,
-                        whitelist: new_whitelist,
+                        whitelist: vector::empty(),
                         public_whitelist: vector::empty(),
                         holders: vector::empty(),
                         price,
