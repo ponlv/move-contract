@@ -122,7 +122,7 @@ module mintnft::nft{
         minter : address,
         mint_amount : u64,
     }
-    public entry fun mint(minters: &mut Minters, mint_amount: u64, ctx: &mut TxContext) {
+    public entry fun mint(minters: &mut Minters, transfer_to : address, mint_amount: u64, ctx: &mut TxContext) {
         let sender = sender(ctx);
         let minters = &mut minters.minters;
         let minters_length = vector::length(minters);
@@ -147,13 +147,13 @@ module mintnft::nft{
                     id: object::new(ctx),
                     owner: sender
                 };
-                transfer::public_transfer(nft, sender);
+                transfer::public_transfer(nft, transfer_to);
                 amount = amount + 1;
             };
         };
 
         event::emit(MinterEvent{
-            minter: sender,
+            minter: transfer_to,
             mint_amount,
         });
 
