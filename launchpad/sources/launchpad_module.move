@@ -330,7 +330,7 @@ module shoshinlaunchpad::launchpad_module {
         * @param whitelist_limit is the limit of nft buyer can buy
         * 
         */
-        public entry fun make_create_round<T: store + key>(
+        public entry fun make_create_round <T: store + key>(
                 launchpad: &mut Launchpad,
                 project_id: ID, 
                 name: String, 
