@@ -4,10 +4,11 @@ module shoshinwhitelist::whitelist_module{
         use sui::transfer;
         use std::vector;
         use sui::dynamic_object_field as ofield;
+        use sui::event;
 
 
 
-        const MAXIMUM_OBJECT_SIZE:u64 = 2;
+        const MAXIMUM_OBJECT_SIZE:u64 = 3000;
 
         const EAdminOnly:u64 = 0;
         const EWhitelistWrongLimit:u64 = 1;
@@ -25,6 +26,7 @@ module shoshinwhitelist::whitelist_module{
         struct WhitelistContainer has key, store {
                 id: UID,
                 admin_address: address,
+                owner: ID,
                 elements: vector<ID>
         }
 
@@ -56,7 +58,7 @@ module shoshinwhitelist::whitelist_module{
         * @dev create_whitelist_conatiner : create a whitelist container for save all whitelist address
         *
         */
-        public fun create_whitelist_conatiner(ctx: &mut TxContext): ID {
+        public fun create_whitelist_conatiner(owner: ID, ctx: &mut TxContext): ID {
                 // check admin
                 let sender = tx_context::sender(ctx);
 
@@ -76,6 +78,7 @@ module shoshinwhitelist::whitelist_module{
                         id: object::new(ctx),
                         admin_address: sender,
                         elements: whitelist_elements,
+                        owner,
                 };
                 let whitelist_container_id = object::id(&whitelist_container);
                 // add dynamic object into container object
@@ -188,6 +191,14 @@ module shoshinwhitelist::whitelist_module{
                 available
         }
 
+
+
+        struct AddWhitelistEvent has copy, drop {
+                round_id: ID,
+                wallets: vector<address>,
+                limits: vector<u64>,
+        }
+
         /***
         * @dev add_whitelist : add more whitelist
         *
@@ -247,7 +258,19 @@ module shoshinwhitelist::whitelist_module{
                                 };
                         };
                         loop_index = loop_index + 1;
-                }
+                };
+
+                event::emit(AddWhitelistEvent{
+                        round_id: object::id(whitelist_container),
+                        wallets,
+                        limits,
+                });
+        }
+
+
+        struct DeleteWhitelistEvent has copy, drop {
+                round_id: ID,
+                wallet: address,
         }
 
         /***
@@ -257,7 +280,12 @@ module shoshinwhitelist::whitelist_module{
         * @param wallet wallet want delete
         * 
         */
-        public fun delete_wallet_in_whitelist(whitelist_container: &mut WhitelistContainer, wallet: address) {
+        public fun delete_wallet_in_whitelist(whitelist_container: &mut WhitelistContainer, wallet: address, ctx: &mut TxContext) {
+                // check admin
+                let sender = tx_context::sender(ctx);
+                let admin_address = whitelist_container.admin_address;
+                assert!(admin_address == sender,EAdminOnly);
+                // check existed
                 let existed = existed(whitelist_container, wallet);
                 assert!( existed == true ,ENotExisted);
                 let is_stop = false;
@@ -297,6 +325,10 @@ module shoshinwhitelist::whitelist_module{
 
                         index = index + 1;
                 };
+                event::emit(DeleteWhitelistEvent{
+                        round_id: object::id(whitelist_container),
+                        wallet,
+                });
         }
 
         /***
@@ -308,7 +340,7 @@ module shoshinwhitelist::whitelist_module{
         * @param is_no_limit is not limit
         * 
         */
-        public fun update_whitelist(whitelist_container: &mut WhitelistContainer, next_value: u64, wallet: address, is_no_limit: bool) {
+        public fun update_whitelist(whitelist_container: &mut WhitelistContainer, next_value: u64, wallet: address, is_no_limit: bool,_: &mut TxContext) {
                 // init 
                 let available = available_whitelist(whitelist_container, next_value, wallet, is_no_limit);
                 assert!( available == true, ENotAvailable);

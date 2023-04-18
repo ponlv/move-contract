@@ -1,4 +1,6 @@
 module mintnft::nft{
+    use shoshinlaunchpad::launchpad_module::{Self,Launchpad};
+    use shoshinwhitelist::whitelist_module::{Self,WhitelistContainer};
     use sui::tx_context::{TxContext,sender};
     use std::string::{Self,String,utf8};
     use sui::package;
@@ -59,9 +61,9 @@ module mintnft::nft{
         let values = vector[
             utf8(b"SUI Zero: NFT Testnet"),
             utf8(b"NFT SUI Zero testnet in SUI network power by Shoshin Square. Become the pioneer in the SUInami."),
-            utf8(b"https://storage.googleapis.com/shoshinsquare/sui-zero-nft.gif"),
-            utf8(b"https://storage.googleapis.com/shoshinsquare/sui-zero-nft.gif"),
-            utf8(b"https://storage.googleapis.com/shoshinsquare/sui-zero-nft.gif"),
+            utf8(b"https://i.pinimg.com/564x/fc/b0/9b/fcb09b7dbc1d3696f416c5f2c911173b.jpg"),
+            utf8(b"https://i.pinimg.com/564x/fc/b0/9b/fcb09b7dbc1d3696f416c5f2c911173b.jpg"),
+            utf8(b"https://i.pinimg.com/564x/fc/b0/9b/fcb09b7dbc1d3696f416c5f2c911173b.jpg"),
             utf8(b"https://shoshinsquare.com/"),
             utf8(b"Shoshin square")
         ];
@@ -88,6 +90,7 @@ module mintnft::nft{
         transfer::public_transfer(nft, sender(ctx));
 
     }
+
 
 
     struct AddMinterEvent has copy, drop {
@@ -167,4 +170,17 @@ module mintnft::nft{
 
     }
 
+
+    public entry fun deposit_to_launchpad(launchpad: &mut Launchpad, mint_amount: u64, ctx: &mut TxContext) {
+       let sender = sender(ctx);
+            let amount = 0;
+            while(amount < mint_amount){
+                let nft = Nft{
+                    id: object::new(ctx),
+                    owner: sender
+                };
+                launchpad_module::deposit<Nft>(launchpad, nft, ctx);
+                amount = amount + 1;
+            };
+    }
 }

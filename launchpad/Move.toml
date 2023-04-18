@@ -1,17 +1,20 @@
 [package]
 name = "shoshinlaunchpad"
 version = "0.0.0"
+published-at = "0xfb5dbab18171ed52c24ad639f1077df5b4fed324ca15926c7d05bf86a3a1b003"
+
 
 
 
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir="crates/sui-framework/packages/sui-framework/", rev = "devnet" }
-# test_module = { local = "../nft_create" }
+shoshinwhitelist = { local = "../whitelist" }
+
 
 
 [addresses]
-shoshinlaunchpad =  "0x0"
+shoshinlaunchpad =  "0xfb5dbab18171ed52c24ad639f1077df5b4fed324ca15926c7d05bf86a3a1b003"
 sui = "0x2"
 
 

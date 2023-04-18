@@ -27,6 +27,7 @@ module shoshinnft::nft_module{
    const ENotValidCoinAmount:u64 = 7; 
    const ENotNftOwner:u64 = 8;
    const EMaximunRoundMinted:u64 = 9;
+   const EMaximumNFTMinted:u64 = 10;
    
 
     struct Admin has key {
@@ -41,6 +42,7 @@ module shoshinnft::nft_module{
         rounds: vector<Round>,
         description: String,
         total_minted: u64,
+        total_supply: u64,
     }
 
     struct Round has key,store {
@@ -98,6 +100,7 @@ module shoshinnft::nft_module{
             rounds: vector::empty(),
             description: string::utf8(b"This object use to save all the rounds"),
             total_minted: 0,
+            total_supply: 5000,
         };
 
         let keys = vector[
@@ -145,12 +148,12 @@ module shoshinnft::nft_module{
         whitelist_module::add_whitelist(whitelist_container, wallets, limits, ctx);
     }
 
-    public entry fun mint_nft_with_whitelist (whitelist_container: &mut WhitelistContainer, mint_amount: u64, wallet: address,  is_no_limit : bool, _: &mut TxContext) {
-        whitelist_module::update_whitelist(whitelist_container, mint_amount, wallet, is_no_limit);
+    public entry fun mint_nft_with_whitelist (whitelist_container: &mut WhitelistContainer, mint_amount: u64, wallet: address,  is_no_limit : bool, ctx: &mut TxContext) {
+        whitelist_module::update_whitelist(whitelist_container, mint_amount, wallet, is_no_limit, ctx);
     }
 
-    public entry fun delete_wallet_address_in_whitelist (whitelist_container: &mut WhitelistContainer, wallet: address, _: &mut TxContext) {
-        whitelist_module::delete_wallet_in_whitelist(whitelist_container, wallet);
+    public entry fun delete_wallet_address_in_whitelist (whitelist_container: &mut WhitelistContainer, wallet: address, ctx: &mut TxContext) {
+        whitelist_module::delete_wallet_in_whitelist(whitelist_container, wallet, ctx);
     }
     
 
@@ -171,15 +174,18 @@ module shoshinnft::nft_module{
         fee_for_mint: u64,
         is_public: bool,
         limit_minted: u64,
-        ctx:&mut TxContext) {
+        ctx:&mut TxContext
+    ) {
+        assert!(container.total_supply > container.total_minted, EMaximumNFTMinted);
         let sender = sender(ctx);
         //admin only
         assert!(admin.address == sender,EAdminOnly);
-
-        let white_list_id = whitelist_module::create_whitelist_conatiner(ctx);
+        let round_uid = object::new(ctx);
+        let round_id = object::uid_to_inner(&round_uid);
+        let white_list_id = whitelist_module::create_whitelist_conatiner(round_id, ctx);
 
         let round = Round{
-            id: object::new(ctx),
+            id: round_uid,
             round_name: round_name,
             start_time: start_time,
             end_time: end_time,
@@ -193,7 +199,7 @@ module shoshinnft::nft_module{
 
         //emit event
         event::emit(CreateRoundEvent{
-            round_id: object::uid_to_inner(&round.id),
+            round_id,
             admin_address: sender,
             round_name,
             limit_minted,
@@ -245,8 +251,10 @@ module shoshinnft::nft_module{
         let current_round = vector::borrow_mut(rounds, length - 1);
 
         // check time condition
+        assert!(container.total_supply > container.total_minted, EMaximumNFTMinted);
         assert!(current_time >= current_round.start_time, ERoundDidNotStartedYet);
         assert!(current_round.total_supply != 0, EMaximunRoundMinted);
+
 
         if (current_time >=  current_round.end_time) {
             abort(ERoundWasEnded)
@@ -272,6 +280,7 @@ module shoshinnft::nft_module{
         clock: &Clock, 
         ctx:&mut TxContext
     ) {
+        assert!(container.total_supply > container.total_minted, EMaximumNFTMinted);
         // get info
         let sender = sender(ctx);
         let rounds = &mut container.rounds;
@@ -287,7 +296,7 @@ module shoshinnft::nft_module{
             abort(ERoundWasEnded)
         };
 
-        whitelist_module::update_whitelist(whitelist_container, 1, sender, current_round.is_public);
+        whitelist_module::update_whitelist(whitelist_container, 1, sender, current_round.is_public, ctx);
 
         let new_nft = Nft{
             id: object::new(ctx),
