@@ -75,11 +75,11 @@ module shoshinmarketplace::marketplace_module {
         id: UID,
         //url: Url,
     }
-    struct MARKETPLACE has drop {}
+    struct MARKETPLACE_MODULE has drop {}
     /*------*/
 
 
-    fun init(otw: MARKETPLACE, ctx:&mut TxContext) {
+    fun init(otw: MARKETPLACE_MODULE, ctx:&mut TxContext) {
         
         let admin = Admin{
             id: object::new(ctx),
@@ -92,7 +92,7 @@ module shoshinmarketplace::marketplace_module {
             containers_list: vector::empty(),
             market_commission_numerator: 250,
             market_commission_denominator: 100,
-            container_maximum_size: 3
+            container_maximum_size: 3000
         }; // marketplace comision fee 2.5% on each nft
 
         //the first container of marketplace.
@@ -175,19 +175,27 @@ module shoshinmarketplace::marketplace_module {
         let market_current_container_list = &mut marketplace.containers_list;
         let current_container_list_length = vector::length(market_current_container_list);
         if( current_container_list_length <= 0 ){
-            return true
-        };
+           return true
+        }
+        else {
+        let checking;
         let current_latest_container = vector::borrow_mut(market_current_container_list, current_container_list_length-1);
         //check if this container is the lastest container in marketplace
         if(current_latest_container.container_id == object::uid_to_inner(&container.id)){
-            if(current_latest_container.can_deposit == true){
-            return false
-            } else { return true }
+            if(container.objects_in_list >=  marketplace.container_maximum_size){
+            current_latest_container.can_deposit = false;
+            checking = true;
+            } else { 
+            current_latest_container.can_deposit = true;
+            checking = false }
         } 
         else {
             if(container.objects_in_list >= marketplace.container_maximum_size){
-            return true
-            } else { return false }
+            let _ = update_status_full_of_container_size(marketplace, container);
+            checking = true;
+            } else { 
+            let _ = update_status_stable_of_container_size(marketplace, container);
+            checking = false ;}
         };
         //TO-DO: check if any container in list can deposit
         //let index = 0;
@@ -197,10 +205,11 @@ module shoshinmarketplace::marketplace_module {
         //         return false
         //     }
         // };
-        return false
+        return checking
+    }
     }
 
-    fun update_status_of_container_by_shared_ID(marketplace:&mut Marketplace, container:&mut Container):bool {
+    fun update_status_full_of_container_size(marketplace:&mut Marketplace, container:&mut Container):bool {
         let market_current_containers_list =&mut marketplace.containers_list;
         let length = vector::length(market_current_containers_list);
         let index = 0;
@@ -214,9 +223,21 @@ module shoshinmarketplace::marketplace_module {
         return true
     }
 
+    fun update_status_stable_of_container_size(marketplace:&mut Marketplace, container:&mut Container):bool {
+        let market_current_containers_list =&mut marketplace.containers_list;
+        let length = vector::length(market_current_containers_list);
+        let index = 0;
+        while(index < length){
+        let container_in_list = vector::borrow_mut(market_current_containers_list, index);
+        if(container_in_list.container_id == object::uid_to_inner(&container.id)){
+        container_in_list.can_deposit = true;
+        };
+        index = index + 1;
+        };
+        return true
+    }
 
     /*ACTIONS*/
-    
     /*1
     @dev USER LIST NFT TO MARKET
     @param ID marketplace 
@@ -234,7 +255,7 @@ module shoshinmarketplace::marketplace_module {
         let need_to_create_new_container = check_need_create_new_container(marketplace,container);
         if(need_to_create_new_container == true){
         //update status of container.
-        let _ = update_status_of_container_by_shared_ID(marketplace, container);
+        let _ = update_status_full_of_container_size(marketplace, container);
         let new_container = create_new_container(marketplace,ctx);
         let nft_id = object::id(&item);
         let listing = List<T>{
@@ -437,16 +458,35 @@ module shoshinmarketplace::marketplace_module {
     @dev ADMIN WITHRAW ALL NFTs IN CONTAINER AND CHANGE THEM TO ANOTHER
     @param
     */
-    // public entry fun admin_withdraw_nfts_change_to_new_container(marketplace:&mut Marketplace, current_container:&mut Container, nfts_list: vector<ID>, ctx:&mut TxContext){
-
-    // }
 
     /*TEST*/
     /*1
     @dev DEPOSIT NFTs TO CONTAINER
     */
-    public entry fun test_deposit_nfts_to_container(marketplace:&mut Marketplace, container:&mut Container, ) {
-
+    public entry fun test_deposit_nfts_to_container(marketplace:&mut Marketplace, container:&mut Container, amount: u64, price: u64, ctx:&mut TxContext) {
+        let index = 0;
+        while( index < amount ){
+            //mint nft
+            let nft = Nft{
+                id: object::new(ctx),
+            };
+            let id_nft = object::id(&nft);
+            //deposit
+            let listing = List<Nft>{
+            id: object::new(ctx),
+            container_id: object::uid_to_inner(&container.id),
+            seller: tx_context::sender(ctx),
+            item: nft,
+            end_time : 1234567,
+            price: price,
+            current_offer: 0,
+            last_offer_id: 0,                
+            };
+            //add the new listing nft to container
+            container.objects_in_list = container.objects_in_list + 1;
+            ofield::add(&mut container.id, id_nft, listing);
+            index = index + 1;    
+        }
     }
 
     /*2
@@ -462,11 +502,6 @@ module shoshinmarketplace::marketplace_module {
             index = index + 1;
         };
     }
-
-    /*3
-    @dev 
-    */
-    
 
 
 
