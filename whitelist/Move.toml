@@ -1,13 +1,13 @@
 [package]
 name = "shoshinwhitelist"
 version = "0.0.1"
-published-at = "0xc9cffce1e3d461852a415e09dfb9af7d2f51d61fde2202762b592af622c4beb0"
+published-at = "0xcdaaa422226ce8eb4abe00e0babe1f9c47a524a2990f0b303e1c5380ac033f8f"
 
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir="crates/sui-framework/packages/sui-framework/", rev = "devnet" }
 
 [addresses]
-shoshinwhitelist =  "0xc9cffce1e3d461852a415e09dfb9af7d2f51d61fde2202762b592af622c4beb0"
+shoshinwhitelist =  "0xcdaaa422226ce8eb4abe00e0babe1f9c47a524a2990f0b303e1c5380ac033f8f"
 sui =  "0x2"
 
