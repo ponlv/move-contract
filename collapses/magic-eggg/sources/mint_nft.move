@@ -1,10 +1,12 @@
-module mintnft::nft{
+module nft::nft{
+    use shoshinlaunchpad::launchpad_module::{Self,Launchpad};
+    // use shoshinwhitelist::whitelist_module::{Self,WhitelistContainer};
     use sui::tx_context::{TxContext,sender};
     use std::string::{Self,String,utf8};
     use sui::package;
     use sui::display;
     use sui::url::{Self,Url};
-    use sui::object::{Self,ID,UID};
+    use sui::object::{Self,UID};
     use sui::transfer;
     use std::vector;
     use sui::event;
@@ -22,7 +24,7 @@ module mintnft::nft{
 
     struct Nft has key,store {
         id: UID,
-        owner : address
+        url: Url,
     }
 
     struct Minters has key, store {
@@ -57,12 +59,12 @@ module mintnft::nft{
         ];
 
         let values = vector[
-            utf8(b"SUI Zero: NFT Testnet"),
-            utf8(b"NFT SUI Zero testnet in SUI network power by Shoshin Square. Become the pioneer in the SUInami."),
-            utf8(b"https://storage.googleapis.com/shoshinsquare/ezgif.com-video-to-gif.gif"),
-            utf8(b"https://storage.googleapis.com/shoshinsquare/ezgif.com-video-to-gif.gif"),
-            utf8(b"https://storage.googleapis.com/shoshinsquare/ezgif.com-video-to-gif.gif"),
-            utf8(b"https://shoshinsquare.com/"),
+            utf8(b"Magic Eggg"),
+            utf8(b"We are the world first organization to establish a new religion on the blockchain, and each devout believer will witness the miracle of the integration of theology and science."),
+            utf8(b"{url}"),
+            utf8(b"{url}"),
+            utf8(b"{url}"),
+            utf8(b""),
             utf8(b"Shoshin square")
         ];
 
@@ -79,7 +81,9 @@ module mintnft::nft{
         
         transfer::share_object(admin); 
         transfer::share_object(minters); 
+
     }
+
 
 
     struct AddMinterEvent has copy, drop {
@@ -122,7 +126,7 @@ module mintnft::nft{
         minter : address,
         mint_amount : u64,
     }
-    public entry fun mint(minters: &mut Minters, transfer_to : address, mint_amount: u64, ctx: &mut TxContext) {
+    public entry fun mint(minters: &mut Minters, transfer_to : address, url: String, mint_amount: u64, ctx: &mut TxContext) {
         let sender = sender(ctx);
         let minters = &mut minters.minters;
         let minters_length = vector::length(minters);
@@ -145,7 +149,7 @@ module mintnft::nft{
             while(amount < mint_amount){
                 let nft = Nft{
                     id: object::new(ctx),
-                    owner: sender
+                    url: url::new_unsafe(string::to_ascii(url))
                 };
                 transfer::public_transfer(nft, transfer_to);
                 amount = amount + 1;
@@ -158,5 +162,34 @@ module mintnft::nft{
         });
 
     }
+
+
+    public entry fun deposit_to_launchpad(minters: &mut Minters, launchpad: &mut Launchpad, mint_amount: u64, url: String, ctx: &mut TxContext) {
+            let sender = sender(ctx);
+            let minters = &mut minters.minters;
+            let minters_length = vector::length(minters);
+            let minter_index = 0;
+            let is_can_mint = false;
+            // check in minters list
+            while(minter_index < minters_length) {
+                let current_element = vector::borrow(minters, minter_index);
+                if(*current_element == sender) {
+                    is_can_mint = true;
+                };
+                minter_index = minter_index + 1;
+            };
+            let amount = 0;
+            // check can mint
+            assert!(is_can_mint == true, ECantMint);
+            while(amount < mint_amount){
+                let nft = Nft{
+                    id: object::new(ctx),
+                    url: url::new_unsafe(string::to_ascii(url))
+                };
+                launchpad_module::deposit<Nft>(launchpad, nft, ctx);
+                amount = amount + 1;
+            };
+    }
+
 
 }

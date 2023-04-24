@@ -5,7 +5,7 @@ version = 0
 
 dependencies = [
   { name = "Sui" },
-  { name = "shoshinwhitelist" },
+  { name = "shoshinlaunchpad" },
 ]
 
 [[move.package]]
@@ -21,8 +21,17 @@ dependencies = [
 ]
 
 [[move.package]]
+name = "shoshinlaunchpad"
+source = { local = "../../launchpad" }
+
+dependencies = [
+  { name = "Sui" },
+  { name = "shoshinwhitelist" },
+]
+
+[[move.package]]
 name = "shoshinwhitelist"
-source = { local = "../whitelist" }
+source = { local = "../../whitelist" }
 
 dependencies = [
   { name = "Sui" },
