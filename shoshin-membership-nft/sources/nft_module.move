@@ -6,7 +6,6 @@ module shoshinnft::nft_module{
     use sui::event;
     use std::vector;
     use sui::object::{Self,ID,UID};
-    use sui::url::{Self,Url};
     use sui::coin::{Self,Coin};
     use sui::sui::SUI;
     use sui::balance::{Self,Balance};
@@ -272,67 +271,73 @@ module shoshinnft::nft_module{
         container: &mut Container, 
         admin: &mut Admin,
         whitelist_container: &mut WhitelistContainer,
+        amount: u64,
         coin: Coin<SUI>,
         clock: &Clock, 
         ctx:&mut TxContext
     ) {
-        assert!(container.total_supply > container.total_minted, EMaximumNFTMinted);
-        assert!(container.total_supply > 0, EMaximumNFTMinted);
-        // get info
-        let container_id = object::id(container);
         let sender = sender(ctx);
-        let rounds = &mut container.rounds;
-        let length = vector::length(rounds);
-        let current_round = vector::borrow_mut(rounds, length - 1);
+        let amount_index = 0;
+        while(amount_index < amount) {
+            assert!(container.total_supply > container.total_minted, EMaximumNFTMinted);
+            assert!(container.total_supply > 0, EMaximumNFTMinted);
+            // get info
+            let container_id = object::id(container);
+            let rounds = &mut container.rounds;
+            let length = vector::length(rounds);
+            let current_round = vector::borrow_mut(rounds, length - 1);
 
-        // check time condition
-        assert!(clock::timestamp_ms(clock) >= current_round.start_time, ERoundDidNotStartedYet);
-        assert!(current_round.total_supply > 0, EMaximunRoundMinted);
-        if (clock::timestamp_ms(clock) >=  current_round.end_time) {
-            abort(ERoundWasEnded)
-        };
-
-        if(current_round.is_public == true) {
-            let isExistedInWhitelist = whitelist_module::existed(whitelist_container, sender(ctx));
-            if(isExistedInWhitelist == true) {
-                whitelist_module::update_whitelist(whitelist_container, 1,sender(ctx), false, ctx);
-            } else {
-                    let wallets = vector::empty();
-                    let limits = vector::empty();
-                    vector::push_back(&mut wallets, sender(ctx));
-                    vector::push_back(&mut limits, current_round.limit_minted);
-                    whitelist_module::add_whitelist(whitelist_container, wallets, limits, ctx);
-                    whitelist_module::update_whitelist(whitelist_container, 1, sender(ctx), false, ctx);
+            // check time condition
+            assert!(clock::timestamp_ms(clock) >= current_round.start_time, ERoundDidNotStartedYet);
+            assert!(current_round.total_supply > 0, EMaximunRoundMinted);
+            if (clock::timestamp_ms(clock) >=  current_round.end_time) {
+                abort(ERoundWasEnded)
             };
-        } else {
-            whitelist_module::update_whitelist(whitelist_container, 1, sender(ctx), false, ctx);
 
+            if(current_round.is_public == true) {
+                let isExistedInWhitelist = whitelist_module::existed(whitelist_container, sender(ctx));
+                if(isExistedInWhitelist == true) {
+                    whitelist_module::update_whitelist(whitelist_container, 1,sender(ctx), false, ctx);
+                } else {
+                        let wallets = vector::empty();
+                        let limits = vector::empty();
+                        vector::push_back(&mut wallets, sender(ctx));
+                        vector::push_back(&mut limits, current_round.limit_minted);
+                        whitelist_module::add_whitelist(whitelist_container, wallets, limits, ctx);
+                        whitelist_module::update_whitelist(whitelist_container, 1, sender(ctx), false, ctx);
+                };
+            } else {
+                whitelist_module::update_whitelist(whitelist_container, 1, sender(ctx), false, ctx);
+
+            };
+
+            let new_nft = Nft{
+                id: object::new(ctx),
+                round_id: object::uid_to_inner(&current_round.id),
+            };
+
+            event::emit(MintNft{
+                container_id,
+                minter: sender(ctx),
+                round_id: object::uid_to_inner(&current_round.id),
+                nft_id: object::id(&new_nft),
+                price: current_round.fee_for_mint,
+            });
+
+            let price_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), current_round.fee_for_mint);
+            transfer::public_transfer(coin::from_balance(price_balance, ctx), admin.receive_address);
+            transfer::public_transfer(new_nft,sender);
+            current_round.total_supply = current_round.total_supply - 1;
+            current_round.total_minted = current_round.total_minted + 1;
+            container.total_minted = container.total_minted + 1;
+            amount_index = amount_index + 1;
         };
 
-        let new_nft = Nft{
-            id: object::new(ctx),
-            round_id: object::uid_to_inner(&current_round.id),
-        };
-
-        event::emit(MintNft{
-            container_id,
-            minter: sender(ctx),
-            round_id: object::uid_to_inner(&current_round.id),
-            nft_id: object::id(&new_nft),
-            price: current_round.fee_for_mint,
-        });
-
-        let price_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), current_round.fee_for_mint);
-        transfer::public_transfer(coin::from_balance(price_balance, ctx), admin.receive_address);
         transfer::public_transfer(coin, sender);
-        transfer::public_transfer(new_nft,sender);
-        current_round.total_supply = current_round.total_supply - 1;
-        current_round.total_minted = current_round.total_minted + 1;
-        container.total_minted = container.total_minted + 1;
         
     }
 
-    public entry fun transfer_nft(nft: Nft, receive_address: address, ctx:&mut TxContext){
+    public entry fun transfer_nft(nft: Nft, receive_address: address, _:&mut TxContext){
         transfer::public_transfer(nft,receive_address);
     }
 
