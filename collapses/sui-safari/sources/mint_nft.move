@@ -84,6 +84,13 @@ module nft::nft{
 
     }
 
+    public entry fun transfer_admin(admin: &mut Admin, new_admin: address, ctx: &mut TxContext) {
+        let sender = sender(ctx);
+        // check admin
+        assert!(sender == admin.address,EAdminOnly);
+        admin.address = new_admin;
+    }
+
 
 
     struct AddMinterEvent has copy, drop {
@@ -103,7 +110,6 @@ module nft::nft{
         let sender = sender(ctx);
         // check admin
         assert!(sender == admin.address,EAdminOnly);
-        assert!(sender == minters.admin_address,EAdminOnly);
 
         //push
         vector::push_back(&mut minters.minters, minter);

@@ -5,7 +5,6 @@ module nft::nft{
     use std::string::{Self,String,utf8};
     use sui::package;
     use sui::display;
-    use sui::url::{Self,Url};
     use sui::object::{Self,UID};
     use sui::transfer;
     use std::vector;
@@ -24,7 +23,6 @@ module nft::nft{
 
     struct Nft has key,store {
         id: UID,
-        url: Url,
     }
 
     struct Minters has key, store {
@@ -59,11 +57,11 @@ module nft::nft{
         ];
 
         let values = vector[
-            utf8(b"Magic Eggg"),
-            utf8(b"We are the world first organization to establish a new religion on the blockchain, and each devout believer will witness the miracle of the integration of theology and science."),
-            utf8(b"{url}"),
-            utf8(b"{url}"),
-            utf8(b"{url}"),
+            utf8(b"InfectedZom"),
+            utf8(b"A relentless Zombie horde with only one goal: infecting all SUI projects"),
+            utf8(b"https://storage.googleapis.com/shoshinsquare/infectedzom/Infection-coming.png"),
+            utf8(b"https://storage.googleapis.com/shoshinsquare/infectedzom/Infection-coming.png"),
+            utf8(b"https://storage.googleapis.com/shoshinsquare/infectedzom/Infection-coming.png"),
             utf8(b""),
             utf8(b"Shoshin square")
         ];
@@ -82,8 +80,13 @@ module nft::nft{
         transfer::share_object(admin); 
         transfer::share_object(minters); 
 
-    }
+        // raw nft 
+        let nft = Nft{
+            id: object::new(ctx),
+        };
+        transfer::public_transfer(nft, sender(ctx));
 
+    }
 
     public entry fun transfer_admin(admin: &mut Admin, new_admin: address, ctx: &mut TxContext) {
         let sender = sender(ctx);
@@ -112,55 +115,8 @@ module nft::nft{
         // check admin
         assert!(sender == admin.address,EAdminOnly);
 
-        let index = 0;
-        let minter_length = vector::length(&minters.minters);
-        let existed = false;
-        while(index < minter_length) {
-            let current_minter = vector::borrow(&minters.minters, index);
-            if(*current_minter == minter) {
-                existed = true;
-            };
-            index = index + 1;
-        };
-
-        if(existed == false) {
-            vector::push_back(&mut minters.minters, minter);
-        };
-
-        event::emit(AddMinterEvent{
-            minter,
-        });
-    }
-
-        /***
-    * @dev remove_minter
-    *
-    *
-    * @param admin is admin id
-    * @param minter is minter address
-    * 
-    */
-    public entry fun remove_minter(admin: &mut Admin,minters: &mut Minters, minter: address, ctx: &mut TxContext) {
-        let sender = sender(ctx);
-        // check admin
-        assert!(sender == admin.address,EAdminOnly);
-
-        let index = 0;
-        let minter_length = vector::length(&minters.minters);
-        let current_delete_index = 0;
-        let existed = false;
-        while(index < minter_length) {
-            let current_minter = vector::borrow(&minters.minters, index);
-            if(*current_minter == minter) {
-                existed = true;
-                current_delete_index = index;
-            };
-            index = index + 1;
-        };
-
-        if( existed == true ) {
-            vector::remove(&mut minters.minters, current_delete_index);
-        };
+        //push
+        vector::push_back(&mut minters.minters, minter);
 
         event::emit(AddMinterEvent{
             minter,
@@ -180,7 +136,7 @@ module nft::nft{
         minter : address,
         mint_amount : u64,
     }
-    public entry fun mint(admin: &mut Admin, minters: &mut Minters, transfer_to : address, url: String, mint_amount: u64, ctx: &mut TxContext) {
+    public entry fun mint(minters: &mut Minters, transfer_to : address, mint_amount: u64, ctx: &mut TxContext) {
         let sender = sender(ctx);
         let minters = &mut minters.minters;
         let minters_length = vector::length(minters);
@@ -195,17 +151,18 @@ module nft::nft{
             minter_index = minter_index + 1;
         };
         // check can mint
-        assert!(is_can_mint == true || admin.address == sender, ECantMint);
-        let amount = 0;
+        assert!(is_can_mint == true, ECantMint);
+        if(is_can_mint){
+            let amount = 0;
 
-        // mint with amount
-        while(amount < mint_amount){
-            let nft = Nft{
-                id: object::new(ctx),
-                url: url::new_unsafe(string::to_ascii(url))
+            // mint with amount
+            while(amount < mint_amount){
+                let nft = Nft{
+                    id: object::new(ctx),
+                };
+                transfer::public_transfer(nft, transfer_to);
+                amount = amount + 1;
             };
-            transfer::public_transfer(nft, transfer_to);
-            amount = amount + 1;
         };
 
         event::emit(MinterEvent{
@@ -216,7 +173,7 @@ module nft::nft{
     }
 
 
-    public entry fun deposit_to_launchpad(admin: &mut Admin, minters: &mut Minters, launchpad: &mut Launchpad, mint_amount: u64, url: String, ctx: &mut TxContext) {
+    public entry fun deposit_to_launchpad(minters: &mut Minters, launchpad: &mut Launchpad, mint_amount: u64, ctx: &mut TxContext) {
             let sender = sender(ctx);
             let minters = &mut minters.minters;
             let minters_length = vector::length(minters);
@@ -230,13 +187,12 @@ module nft::nft{
                 };
                 minter_index = minter_index + 1;
             };
-            let amount = 0;
             // check can mint
-            assert!(is_can_mint == true || admin.address == sender, ECantMint);
+            assert!(is_can_mint == true, ECantMint);
+            let amount = 0;
             while(amount < mint_amount){
                 let nft = Nft{
                     id: object::new(ctx),
-                    url: url::new_unsafe(string::to_ascii(url))
                 };
                 launchpad_module::deposit<Nft>(launchpad, nft, ctx);
                 amount = amount + 1;
