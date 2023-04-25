@@ -87,6 +87,13 @@ module nft::nft{
         transfer::public_transfer(nft, sender(ctx));
 
     }
+    
+    public entry fun transfer_admin(admin: &mut Admin, new_admin: address, ctx: &mut TxContext) {
+        let sender = sender(ctx);
+        // check admin
+        assert!(sender == admin.address,EAdminOnly);
+        admin.address = new_admin;
+    }
 
 
 
