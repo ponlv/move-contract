@@ -266,8 +266,7 @@ module nft::nft{
     * 
     */
     public entry fun deposit_to_launchpad(
-        admin: &mut Admin, 
-        container: &mut Container, 
+        admin: &mut Admin,  
         launchpad: &mut Launchpad, 
         mint_amount: u64,
         image_url: String,       
@@ -276,37 +275,25 @@ module nft::nft{
         description: String,
         name: String, 
         ctx: &mut TxContext
-    ) {
-            let sender = sender(ctx);
-            let minters = &mut container.minters;
-            let minters_length = vector::length(minters);
-            let minter_index = 0;
-            let is_can_mint = false;
-            // check in minters list
-            while(minter_index < minters_length) {
-                let current_element = vector::borrow(minters, minter_index);
-                if(*current_element == sender) {
-                    is_can_mint = true;
-                };
-                minter_index = minter_index + 1;
+    ) {     
+        let sender = sender(ctx);
+        // check admin
+        assert!(sender == admin.address,EAdminOnly);
+        let amount = 0;
+        while(amount < mint_amount){
+            let nft = Nft{
+                id: object::new(ctx),
+                url: url::new_unsafe(string::to_ascii(image_url)),
+                project_url: url::new_unsafe(string::to_ascii(project_url)),
+                creator,
+                description,
+                name,
+                attributes: vec_map::empty()
             };
-            let amount = 0;
-            // check can mint
-            assert!(is_can_mint == true || admin.address == sender, ECantMint);
-            while(amount < mint_amount){
-                let nft = Nft{
-                    id: object::new(ctx),
-                    url: url::new_unsafe(string::to_ascii(image_url)),
-                    project_url: url::new_unsafe(string::to_ascii(project_url)),
-                    creator,
-                    description,
-                    name,
-                    attributes: vec_map::empty()
-                };
-                launchpad_module::deposit<Nft>(launchpad, nft, ctx);
-                amount = amount + 1;
-                container.total_minted = container.total_minted + 1;
-            };
+            launchpad_module::deposit<Nft>(launchpad, nft, ctx);
+            amount = amount + 1;
+            container.total_minted = container.total_minted + 1;
+        };
     }
 
     struct ChangeMagicEnableEvent has copy, drop {

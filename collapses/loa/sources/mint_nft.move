@@ -57,11 +57,11 @@ module nft::nft{
         ];
 
         let values = vector[
-            utf8(b"Sui Watcher"),
-            utf8(b" Support revolution of @SuiNetwork - Next Layer1 built for billion users Latest news, insights and features projects of #SUI"),
-            utf8(b"https://storage.googleapis.com/shoshinsquare/sui-watcher/sui-watcher.jpg"),
-            utf8(b"https://storage.googleapis.com/shoshinsquare/sui-watcher/sui-watcher.jpg"),
-            utf8(b"https://storage.googleapis.com/shoshinsquare/sui-watcher/sui-watcher.jpg"),
+            utf8(b"LOA SUI OG Pass"),
+            utf8(b"Introducing the LOA Sui OG Pass Collection a unique offering for Legend of Arcadia players that fuses traditional gaming with the cutting-edge Web3 GameFi 2.0 ecosystem. Legend of Arcadia, a free-to-play and play-to-earn strategy-casual action card game, invites players to dive deep into its immersive universe while reaping rewards through staking, battling, and mining. Launching on Sui, the LOA Sui OG Pass Collection provides an array of exclusive benefits for its holders. Pass holders will enjoy priority access to IDO whitelists, Genesis NFT whitelists, and Alpha Test 2, allowing them to stay ahead of the curve in the evolving world of Legend of Arcadia. Additionally, Pass holders will have the chance to join in the exciting USDT raffle, adding an extra layer of reward to their gaming experience. Do not miss your opportunity to be a part of the LOA Sui OG Pass Collection a game-changing experience that brings together the best of gaming and blockchain technology."),
+            utf8(b"https://shoshinsquare.infura-ipfs.io/ipfs/QmaVJytn4m41rwysFhWRZ4cswZ4PX9xX8fN9iUmZysSYT2"),
+            utf8(b"https://shoshinsquare.infura-ipfs.io/ipfs/QmaVJytn4m41rwysFhWRZ4cswZ4PX9xX8fN9iUmZysSYT2"),
+            utf8(b"https://shoshinsquare.infura-ipfs.io/ipfs/QmaVJytn4m41rwysFhWRZ4cswZ4PX9xX8fN9iUmZysSYT2"),
             utf8(b""),
             utf8(b"Shoshin square")
         ];
@@ -87,7 +87,7 @@ module nft::nft{
         transfer::public_transfer(nft, sender(ctx));
 
     }
-    
+
     public entry fun transfer_admin(admin: &mut Admin, new_admin: address, ctx: &mut TxContext) {
         let sender = sender(ctx);
         // check admin
@@ -114,7 +114,6 @@ module nft::nft{
         let sender = sender(ctx);
         // check admin
         assert!(sender == admin.address,EAdminOnly);
-        assert!(sender == minters.admin_address,EAdminOnly);
 
         //push
         vector::push_back(&mut minters.minters, minter);
