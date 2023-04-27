@@ -175,30 +175,18 @@ module nft::nft{
     }
 
 
-    public entry fun deposit_to_launchpad(minters: &mut Minters, launchpad: &mut Launchpad, mint_amount: u64, ctx: &mut TxContext) {
-            let sender = sender(ctx);
-            let minters = &mut minters.minters;
-            let minters_length = vector::length(minters);
-            let minter_index = 0;
-            let is_can_mint = false;
-            // check in minters list
-            while(minter_index < minters_length) {
-                let current_element = vector::borrow(minters, minter_index);
-                if(*current_element == sender) {
-                    is_can_mint = true;
-                };
-                minter_index = minter_index + 1;
+    public entry fun deposit_to_launchpad(admin: &mut Admin, launchpad: &mut Launchpad, mint_amount: u64, ctx: &mut TxContext) {
+        let sender = sender(ctx);
+        // check admin
+        assert!(sender == admin.address,EAdminOnly);
+        let amount = 0;
+        while(amount < mint_amount){
+            let nft = Nft{
+                id: object::new(ctx),
             };
-            // check can mint
-            assert!(is_can_mint == true, ECantMint);
-            let amount = 0;
-            while(amount < mint_amount){
-                let nft = Nft{
-                    id: object::new(ctx),
-                };
-                launchpad_module::deposit<Nft>(launchpad, nft, ctx);
-                amount = amount + 1;
-            };
+            launchpad_module::deposit<Nft>(launchpad, nft, ctx);
+            amount = amount + 1;
+        };
     }
 
 
