@@ -12,6 +12,8 @@ module shoshinmarketplace::marketplace_module {
     use sui::coin::{Self, Coin};
     use sui::balance::{Self,Balance};
     use sui::sui::SUI;
+    //collection fee
+    use collection_fee::fee_module::{Self,FeeContainer};
 
     //constant
     //const MAXIMUM_CONTAINER_SIZE:u64 = 1;
@@ -65,21 +67,12 @@ module shoshinmarketplace::marketplace_module {
         seller: address,
         item: T, 
         price: u64,
-        end_time: u64,
         current_offer : u64,
         last_offer_id: u64
     }
 
-    /*TEST*/
-    struct Nft has key,store {
-        id: UID,
-        //url: Url,
-    }
-    struct MARKETPLACE_MODULE has drop {}
-    /*------*/
 
-
-    fun init(otw: MARKETPLACE_MODULE, ctx:&mut TxContext) {
+    fun init(ctx:&mut TxContext) {
         
         let admin = Admin{
             id: object::new(ctx),
@@ -108,37 +101,9 @@ module shoshinmarketplace::marketplace_module {
             can_deposit: true
         });
 
-        /*------TEST------*/        
-        let keys = vector[
-            utf8(b"name"),
-            utf8(b"description"),
-            utf8(b"url"),
-            utf8(b"project_url"),
-            utf8(b"image_url"),
-            utf8(b"img_url"),
-            utf8(b"creator"),
-        ];
-        let values = vector[
-            utf8(b"NFT OF ZAYN"),
-            utf8(b"Zayn tr from AnnT family - nft for test"),
-            utf8(b"https://i.scdn.co/image/ab67616d0000b27337f7fc54cf2701b2aeadbac5"),
-            utf8(b"https://shoshinsquare.com/"),
-            utf8(b"https://i.scdn.co/image/ab67616d0000b27337f7fc54cf2701b2aeadbac5"),
-            utf8(b"https://i.scdn.co/image/ab67616d0000b27337f7fc54cf2701b2aeadbac5"),
-            utf8(b"Zayn Tr")
-        ];
-        // Claim the `Publisher` for the package!
-        let publisher = package::claim(otw, ctx);
-        // Get a new `Display` object for the `Nft` type.
-        let display = display::new_with_fields<Nft>(
-            &publisher, keys, values, ctx
-        );
-        // Commit first version of `Display` to apply changes.
-        display::update_version(&mut display);       
-        transfer::public_transfer(publisher, sender(ctx));
-        transfer::public_transfer(display, sender(ctx));       
-        /*----*/        
 
+        //int container for storing all collection fees
+        let _ = fee_module::create_fee_container(0,ctx); 
         transfer::share_object(container);
         transfer::share_object(admin);
         transfer::share_object(marketplace)
@@ -206,7 +171,7 @@ module shoshinmarketplace::marketplace_module {
         //     }
         // };
         return checking
-    }
+        }
     }
 
     fun update_status_full_of_container_size(marketplace:&mut Marketplace, container:&mut Container):bool {
@@ -216,7 +181,7 @@ module shoshinmarketplace::marketplace_module {
         while(index < length){
         let container_in_list = vector::borrow_mut(market_current_containers_list, index);
         if(container_in_list.container_id == object::uid_to_inner(&container.id)){
-        container_in_list.can_deposit = false;
+            container_in_list.can_deposit = false;
         };
         index = index + 1;
         };
@@ -230,7 +195,7 @@ module shoshinmarketplace::marketplace_module {
         while(index < length){
         let container_in_list = vector::borrow_mut(market_current_containers_list, index);
         if(container_in_list.container_id == object::uid_to_inner(&container.id)){
-        container_in_list.can_deposit = true;
+            container_in_list.can_deposit = true;
         };
         index = index + 1;
         };
@@ -247,10 +212,11 @@ module shoshinmarketplace::marketplace_module {
         list_id: ID,
         nft_id: ID,
         container_id: ID,
+        marketplace_id: ID,//to define which version of marketpace
         price: u64,
         seller: address,
     }
-    public entry fun make_list_nft<T: key + store>(marketplace:&mut Marketplace, container:&mut Container, item: T, price: u64, end_time: u64, ctx:&mut TxContext) {
+    public entry fun make_list_nft<T: key + store>(marketplace:&mut Marketplace, container:&mut Container, marketplace_package_id: ID, item: T, price: u64, ctx:&mut TxContext) {
         //check max size for container on param 
         let need_to_create_new_container = check_need_create_new_container(marketplace,container);
         if(need_to_create_new_container == true){
@@ -263,7 +229,7 @@ module shoshinmarketplace::marketplace_module {
             container_id: object::id(&new_container),
             seller: tx_context::sender(ctx),
             item: item,
-            end_time : end_time,
+           // end_time : end_time,
             price: price,
             current_offer: 0,
             last_offer_id: 0,                
@@ -272,6 +238,7 @@ module shoshinmarketplace::marketplace_module {
             list_id: object::id(&listing),
             nft_id: nft_id,
             container_id: object::id(&new_container),
+            marketplace_id: marketplace_package_id,
             price: price,
             seller: tx_context::sender(ctx),
         });
@@ -294,7 +261,7 @@ module shoshinmarketplace::marketplace_module {
             container_id: object::uid_to_inner(&container.id),
             seller: tx_context::sender(ctx),
             item: item,
-            end_time : end_time,
+           // end_time : end_time,
             price: price,
             current_offer: 0,
             last_offer_id: 0,                
@@ -303,6 +270,7 @@ module shoshinmarketplace::marketplace_module {
             list_id: object::id(&listing),
             nft_id: nft_id,
             container_id: object::uid_to_inner(&container.id),
+            marketplace_id: marketplace_package_id,
             price: price,
             seller: tx_context::sender(ctx),
         });
@@ -320,29 +288,39 @@ module shoshinmarketplace::marketplace_module {
         nft_id : ID,
         seller : address,
         new_owner: address,
-        market_fee: u64,
-        seller_fee: u64,
+        // market_fee: u64,
+        // seller_fee: u64,
     }
-    public entry fun make_buy_nft<T: key + store >(marketplace:&mut Marketplace, admin: &Admin, container:&mut Container, nft_id: ID, coin: Coin<SUI>, ctx:&mut TxContext){
+    public entry fun make_buy_nft<T: key + store >(marketplace:&mut Marketplace, admin: &Admin, container:&mut Container, nft_id: ID, coin: Coin<SUI>, collection_fees:&mut FeeContainer, collection_name: String, amount: u64,ctx:&mut TxContext){
+        //comission
+        let seller_commission:u64 = 0;
+        
         //update number of object in container
         //Notes: need emit event for this action or not?
         container.objects_in_list = container.objects_in_list - 1;
 
         //get nft in container
-        let List<T> {id, container_id: _, seller, item, price, end_time:_, current_offer:_, last_offer_id:_} = ofield::remove(&mut container.id, nft_id);
+        let List<T> {id, container_id: _, seller, item, price, current_offer:_, last_offer_id:_} = ofield::remove(&mut container.id, nft_id);
 
         //fee
         let market_commission_by_nft_price = (price * marketplace.market_commission_numerator) / (100 * marketplace.market_commission_denominator);
+        let (creator_address, creator_commision) = fee_module::get_creator_fee(collection_fees,collection_name, amount,ctx);
+        if( creator_commision > 0 ){
+            seller_commission = price - creator_commision - market_commission_by_nft_price;
+            let fee_for_creator:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), creator_commision);
+            transfer::public_transfer(coin::from_balance(fee_for_creator, ctx), creator_address)
+        }else{
+            seller_commission = price - market_commission_by_nft_price;
+        };
+        
         let fee_for_market:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), market_commission_by_nft_price);
-        let fee_for_seller:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), price - market_commission_by_nft_price);
+        let fee_for_seller:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), seller_commission);
 
 
         event::emit(EventBuyNft{
-            nft_id : object::uid_to_inner(&id),
+            nft_id : nft_id,
             seller : seller,
             new_owner: sender(ctx),
-            market_fee: market_commission_by_nft_price,
-            seller_fee: price - market_commission_by_nft_price,           
         });
         /*
         transfer fee to market admin, seller
@@ -365,7 +343,7 @@ module shoshinmarketplace::marketplace_module {
     }
     public entry fun make_delist_nft<T: key + store >(container_has_nft:&mut Container, nft_id: ID, ctx:&mut TxContext){
         //get listing nft in the container
-        let List<T> {id, container_id:_, seller, item, price:_, end_time:_, current_offer:_, last_offer_id:_} = ofield::remove(&mut container_has_nft.id, nft_id);
+        let List<T> {id, container_id:_, seller, item, price:_, current_offer:_, last_offer_id:_} = ofield::remove(&mut container_has_nft.id, nft_id);
 
         //only seller can do it!
         assert!(seller == sender(ctx), EWrongSeller);
@@ -377,7 +355,7 @@ module shoshinmarketplace::marketplace_module {
         
         //emit event delist nft
         event::emit(EventDeListNft{
-            nft_id: object::uid_to_inner(&id),
+            nft_id: nft_id,
             seller: seller
         });
 
@@ -396,7 +374,7 @@ module shoshinmarketplace::marketplace_module {
     }
     public entry fun make_update_listing_price<T: store + key>(container_has_nft:&mut Container, nft_id: ID, new_price: u64, ctx:&mut TxContext){
         //get listing nft in the container
-        let List<T> {id, container_id:_, seller, item, price, end_time:_, current_offer:_, last_offer_id:_} = ofield::borrow_mut(&mut container_has_nft.id, nft_id);
+        let List<T> {id:_, container_id:_, seller, item, price, current_offer:_, last_offer_id:_} = ofield::borrow_mut(&mut container_has_nft.id, nft_id);
         
         //only seller can do it!
         assert!(seller ==&mut sender(ctx), EWrongSeller);
@@ -405,7 +383,7 @@ module shoshinmarketplace::marketplace_module {
         price =&mut new_price;
         //emit event
         event::emit(EventUpdateListingPrice{
-            nft_id: object::uid_to_inner(id),
+            nft_id: nft_id,
             new_price: new_price,
         });
     }
@@ -458,50 +436,6 @@ module shoshinmarketplace::marketplace_module {
     @dev ADMIN WITHRAW ALL NFTs IN CONTAINER AND CHANGE THEM TO ANOTHER
     @param
     */
-
-    /*TEST*/
-    /*1
-    @dev DEPOSIT NFTs TO CONTAINER
-    */
-    public entry fun test_deposit_nfts_to_container(marketplace:&mut Marketplace, container:&mut Container, amount: u64, price: u64, ctx:&mut TxContext) {
-        let index = 0;
-        while( index < amount ){
-            //mint nft
-            let nft = Nft{
-                id: object::new(ctx),
-            };
-            let id_nft = object::id(&nft);
-            //deposit
-            let listing = List<Nft>{
-            id: object::new(ctx),
-            container_id: object::uid_to_inner(&container.id),
-            seller: tx_context::sender(ctx),
-            item: nft,
-            end_time : 1234567,
-            price: price,
-            current_offer: 0,
-            last_offer_id: 0,                
-            };
-            //add the new listing nft to container
-            container.objects_in_list = container.objects_in_list + 1;
-            ofield::add(&mut container.id, id_nft, listing);
-            index = index + 1;    
-        }
-    }
-
-    /*2
-    @dev MINT NFT BY AMOUNT
-    */
-    public entry fun mint_nfts_to_test(amount: u64, ctx:&mut TxContext){
-        let index = 0;
-        while( index < amount ){
-            let nfts = Nft{
-                id: object::new(ctx),
-            };
-            transfer::public_transfer(nfts,sender(ctx));
-            index = index + 1;
-        };
-    }
 
 
 

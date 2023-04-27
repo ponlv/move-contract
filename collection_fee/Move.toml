@@ -1,10 +1,11 @@
 [package]
-name = "shoshinmarketplace_collection_fee"
+name = "collection_fee"
 version = "0.0.0"
+published-at = "0x5cddc39526dd6ba42ec60cfc7d25e446cb9ce67616adc9c9f7d0261040aff6c3"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir="crates/sui-framework/packages/sui-framework/", rev = "devnet" }
 
 [addresses]
-shoshinmarketplace_collection_fee = "0x0"
+collection_fee = "0x5cddc39526dd6ba42ec60cfc7d25e446cb9ce67616adc9c9f7d0261040aff6c3"
 sui =  "0x2"
