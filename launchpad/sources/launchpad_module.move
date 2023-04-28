@@ -31,7 +31,7 @@ module shoshinlaunchpad::launchpad_module {
         const ERoundNotPublic:u64 = 28;
         const EIsRoundPublic:u64 = 29;
 
-        const MAXIMUM_OBJECT_SIZE:u64 = 3000;
+        const MAXIMUM_OBJECT_SIZE:u64 = 50;
 
 
         struct Admin has key {

@@ -20,8 +20,10 @@ module shoshinmarketplace::marketplace_module {
     const ENotInTheAuctionTime:u64 = 5001;
     const EPriceTooLow:u64 = 5002;
     const ENotOwner:u64 = 5003;
+    const EMaximumSize:u64 = 5004;
+    const EWasOwned:u64 = 5005;
 
-    const MAXIMUN_OBJECT_SIZE:u64 = 3000;
+    const MAXIMUN_OBJECT_SIZE:u64 = 3;
 
     struct Admin has key {
         id: UID,
@@ -29,10 +31,16 @@ module shoshinmarketplace::marketplace_module {
         receive_address: address
     }
 
+    struct ContainerStatus has store, drop {
+        id: ID,
+        can_deposit: bool
+    }
+
     struct Auction has key {
         id: UID,
         container_maximum_size: u64,
         collection_fee_container_id: ID,
+        containers: vector<ContainerStatus>,
     }
 
 
@@ -65,18 +73,24 @@ module shoshinmarketplace::marketplace_module {
 
         let collection_fee_container_id = collection_fee_module::create_fee_container(25 ,ctx);
 
-        let auction = Auction {
-            id: object::new(ctx),
-            container_maximum_size: MAXIMUN_OBJECT_SIZE,
-            collection_fee_container_id,
-
-        }; // marketplace comision fee 2.5% on each nft
-
         //the first container of marketplace.
         let container = Container{
             id: object::new(ctx),
             count: 0      
         };
+
+        let auction = Auction {
+            id: object::new(ctx),
+            container_maximum_size: MAXIMUN_OBJECT_SIZE,
+            collection_fee_container_id,
+            containers: vector::empty()
+        };
+
+        //deposit new container in container list 
+        vector::push_back(&mut auction.containers, ContainerStatus{
+            id: object::id(&container),
+            can_deposit: true
+        });
 
 
         transfer::share_object(container);
@@ -98,12 +112,18 @@ module shoshinmarketplace::marketplace_module {
     * @param auction is auction id
     * 
     */
-    fun create_new_container(ctx:&mut TxContext):Container {
+    fun create_new_container(auction: &mut Auction, ctx:&mut TxContext):Container {
         // create container
         let container = Container{
             id: object::new(ctx),
-            count: 0
+            count: 1
         };
+
+        //deposit new container in container list 
+        vector::push_back(&mut auction.containers, ContainerStatus{
+            id: object::id(&container),
+            can_deposit: true
+        });
 
         //emit event
         event::emit(EventCreateContainer {
@@ -123,6 +143,21 @@ module shoshinmarketplace::marketplace_module {
         end_time: u64,
         start_price: u64,
         auction_package_id: ID
+    }
+
+
+    public fun change_container_status(auction:&mut Auction, container: &mut Container, status : bool) {
+        let containers = &mut auction.containers;
+        let length = vector::length(containers);
+        let index = 0;
+        while(index < length){
+        let current_container = vector::borrow_mut(containers, index);
+            if(current_container.id == object::uid_to_inner(&container.id)){
+                current_container.can_deposit = status;
+                break
+            };
+            index = index + 1;
+        };
     }
 
     /***
@@ -151,7 +186,7 @@ module shoshinmarketplace::marketplace_module {
         // check max size
         if (container.count == auction.container_maximum_size ) {
             // create new container
-            let new_container = create_new_container(ctx);
+            let new_container = create_new_container(auction, ctx);
             let nft_id = object::id(&item);
 
             // create new listed
@@ -179,9 +214,6 @@ module shoshinmarketplace::marketplace_module {
                 end_time,
                 start_price,
             });
-            
-            // count
-            new_container.count =  new_container.count + 1;
             // add dynamic field
             ofield::add(&mut new_container.id, nft_id, listing);
             transfer::share_object(new_container);
@@ -213,7 +245,12 @@ module shoshinmarketplace::marketplace_module {
                 start_time,
                 end_time
             });
-            // count
+
+            // check full
+            if(container.count + 1 == auction.container_maximum_size) {
+                change_container_status(auction, container, false);
+            };
+
             container.count =  container.count + 1;
 
             // add dynamic field
@@ -249,6 +286,8 @@ module shoshinmarketplace::marketplace_module {
         // get listed nft
         let auction_item = ofield::borrow_mut<ID, AuctionItem<T>>(&mut container.id, nft_id);
         let current_time = clock::timestamp_ms(clock);
+        // check owner
+        assert!(tx_context::seller != auction_item.seller, EWasOwned);
         // check time
         assert!(current_time >= auction_item.start_time && current_time <= auction_item.end_time, ENotInTheAuctionTime);
         // check price
@@ -263,6 +302,7 @@ module shoshinmarketplace::marketplace_module {
         coin::join(&mut auction_item.paid, coin::from_balance(new_auction_balance, ctx));
         // update current auction
         auction_item.current_offerer = tx_context::sender(ctx);
+        auction_item.current_price = auction_price;
         // end
         transfer::public_transfer(coin, tx_context::sender(ctx));
 
@@ -287,18 +327,25 @@ module shoshinmarketplace::marketplace_module {
     * 
     */
     public entry fun deauction<T: key + store>(
+        auction: &mut Auction,
         container:&mut Container,
+        admin: &mut Admin,
         nft_id: ID,
         ctx: &mut TxContext
     ) {
         // get listed nft
         let AuctionItem<T> { id, seller, current_offerer, container_id : _, item, start_price: _, current_price, paid, start_time: _, end_time: _} = ofield::remove<ID, AuctionItem<T>>(&mut container.id, nft_id);
-        assert!(seller == tx_context::sender(ctx), ENotOwner);
+        assert!(seller == tx_context::sender(ctx) || tx_context::sender(ctx) == admin.address, ENotOwner);
         // current coin
         let current_auction_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), current_price);
         transfer::public_transfer(coin::from_balance(current_auction_balance, ctx), current_offerer);
         // transfer nft to owner
         transfer::public_transfer(item, tx_context::sender(ctx));
+
+        // update status
+        change_container_status(auction, container, true);
+        container.count = container.count - 1;
+
         // destroy
         object::delete(id);
         coin::destroy_zero(paid);
@@ -323,6 +370,7 @@ module shoshinmarketplace::marketplace_module {
     * 
     */
     public entry fun accept_auction<T: key + store>(
+        auction: &mut Auction,
         container:&mut Container,
         admin: &mut Admin,
         fee_container: &mut FeeContainer,
@@ -349,6 +397,11 @@ module shoshinmarketplace::marketplace_module {
         transfer::public_transfer(coin::from_balance(current_auction_balance, ctx), seller);
         // transfer nft to owner
         transfer::public_transfer(item, current_offerer);
+
+        // update status
+        change_container_status(auction, container, true);
+        container.count = container.count - 1;
+
         // destroy
         object::delete(id);
         coin::destroy_zero(paid);
@@ -372,7 +425,7 @@ module shoshinmarketplace::marketplace_module {
     * @param reciver_address is address wil receive
     * 
     */
-    public fun add_collection_fee<T: key + store>(admin: &mut Admin, fee_container: &mut FeeContainer, creator_fee: u64, receive_address: address, ctx: &mut TxContext) {
+    public entry fun add_collection_fee<T: key + store>(admin: &mut Admin, fee_container: &mut FeeContainer, creator_fee: u64, receive_address: address, ctx: &mut TxContext) {
         // check admin
         let sender = tx_context::sender(ctx);
         assert!(sender == admin.address, EAdminOnly);
@@ -396,7 +449,7 @@ module shoshinmarketplace::marketplace_module {
     * @param fee_container is id of fee_container
     * 
     */
-    public fun delete_collection_fee<T: key + store>(admin: &mut Admin, fee_container: &mut FeeContainer, ctx: &mut TxContext) {
+    public entry fun delete_collection_fee<T: key + store>(admin: &mut Admin, fee_container: &mut FeeContainer, ctx: &mut TxContext) {
         // check admin
         let sender = tx_context::sender(ctx);
         assert!(sender == admin.address, EAdminOnly);
@@ -413,7 +466,7 @@ module shoshinmarketplace::marketplace_module {
     * @param fee is fee of collection you want to update
     * 
     */
-    public fun update_collection_fee<T: key + store>(admin: &mut Admin, fee_container: &mut FeeContainer, fee: u64, ctx: &mut TxContext) {
+    public entry fun update_collection_fee<T: key + store>(admin: &mut Admin, fee_container: &mut FeeContainer, fee: u64, ctx: &mut TxContext) {
         // check admin
         let sender = tx_context::sender(ctx);
         assert!(sender == admin.address, EAdminOnly);

@@ -12,7 +12,7 @@ module shoshinmarketplace::collection_fee_module {
     const ENotExisted:u64 = 2;
         
     const DEFAULT_SERVICE_FEE:u64 = 25;
-    const MAXIMUM_OBJECT_SIZE:u64 = 3000;
+    const MAXIMUM_OBJECT_SIZE:u64 = 1000;
 
     struct FeeElement has store, drop, copy {
         collection_name: String,
