@@ -357,7 +357,7 @@ module shoshinmarketplace::marketplace_module {
 
     }
 
-    struct AcceptAution has copy, drop {
+    struct AcceptAutionEvent has copy, drop {
         nft_id: ID,
     }
 
