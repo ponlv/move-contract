@@ -323,7 +323,7 @@ module collection_fee::fee_module{
                 let current_fee_element = vector::borrow(&mut fee_elements, fee_loop_index);
                 // check exist
                 if ( collection_name == current_fee_element.collection_name ) {
-                    result = current_fee_element.creator_fee * amount / 1000;
+                    result = current_fee_element.creator_fee * amount / (1000*100);
                     result_address = current_fee_element.reciver_address;
                     is_stop = true;
                 };
@@ -340,6 +340,6 @@ module collection_fee::fee_module{
     }
 
     public fun get_service_fee(fee_container: &mut FeeContainer, amount: u64):u64 {
-        fee_container.default_service_fee * amount / 1000
+        fee_container.default_service_fee * amount / (1000*100)
     }
 }

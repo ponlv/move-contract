@@ -12,11 +12,10 @@ module shoshinmarketplace::marketplace_module {
     use sui::coin::{Self, Coin};
     use sui::balance::{Self,Balance};
     use sui::sui::SUI;
+    use std::type_name::{Self};
     //collection fee
     use collection_fee::fee_module::{Self,FeeContainer};
 
-    //constant
-    //const MAXIMUM_CONTAINER_SIZE:u64 = 1;
 
     //error
     const EAdminOnly:u64 = 4003;
@@ -30,6 +29,9 @@ module shoshinmarketplace::marketplace_module {
     const ESoonBid:u64 = 4003+8;
     const ELateBid:u64 = 4003+9;
     const EDenominatorInValid:u64 = 4003+10;
+    const EOwnerOnly:u64 = 4003+11;
+    const EOfferDuration:u64 = 4003+12; //Offer still alive
+    const ENotTheSameNft:u64 = 4003+13;
 
     struct Admin has key {
         id: UID,
@@ -67,10 +69,7 @@ module shoshinmarketplace::marketplace_module {
         seller: address,
         item: T, 
         price: u64,
-        current_offer : u64,
-        last_offer_id: u64
     }
-
 
     fun init(ctx:&mut TxContext) {
         
@@ -85,7 +84,7 @@ module shoshinmarketplace::marketplace_module {
             containers_list: vector::empty(),
             market_commission_numerator: 250,
             market_commission_denominator: 100,
-            container_maximum_size: 3000
+            container_maximum_size: 100
         }; // marketplace comision fee 2.5% on each nft
 
         //the first container of marketplace.
@@ -229,10 +228,7 @@ module shoshinmarketplace::marketplace_module {
             container_id: object::id(&new_container),
             seller: tx_context::sender(ctx),
             item: item,
-           // end_time : end_time,
-            price: price,
-            current_offer: 0,
-            last_offer_id: 0,                
+            price: price,              
         };
         event::emit(EventListNft{
             list_id: object::id(&listing),
@@ -262,9 +258,7 @@ module shoshinmarketplace::marketplace_module {
             seller: tx_context::sender(ctx),
             item: item,
            // end_time : end_time,
-            price: price,
-            current_offer: 0,
-            last_offer_id: 0,                
+            price: price,            
         };
         event::emit(EventListNft{
             list_id: object::id(&listing),
@@ -288,10 +282,8 @@ module shoshinmarketplace::marketplace_module {
         nft_id : ID,
         seller : address,
         new_owner: address,
-        // market_fee: u64,
-        // seller_fee: u64,
     }
-    public entry fun make_buy_nft<T: key + store >(marketplace:&mut Marketplace, admin: &Admin, container:&mut Container, nft_id: ID, coin: Coin<SUI>, collection_fees:&mut FeeContainer, collection_name: String, amount: u64,ctx:&mut TxContext){
+    public entry fun make_buy_nft<T: key + store >(marketplace:&mut Marketplace, admin: &Admin, container:&mut Container, nft_id: ID, coin: Coin<SUI>, collection_fees:&mut FeeContainer, ctx:&mut TxContext){
         //comission
         let seller_commission:u64 = 0;
         
@@ -300,11 +292,13 @@ module shoshinmarketplace::marketplace_module {
         container.objects_in_list = container.objects_in_list - 1;
 
         //get nft in container
-        let List<T> {id, container_id: _, seller, item, price, current_offer:_, last_offer_id:_} = ofield::remove(&mut container.id, nft_id);
+        let List<T> {id, container_id: _, seller, item, price} = ofield::remove(&mut container.id, nft_id);
 
         //fee
         let market_commission_by_nft_price = (price * marketplace.market_commission_numerator) / (100 * marketplace.market_commission_denominator);
-        let (creator_address, creator_commision) = fee_module::get_creator_fee(collection_fees,collection_name, amount,ctx);
+        //get collection_name from nft type
+        let collection_name = string::from_ascii(type_name::into_string(type_name::get<T>()));
+        let (creator_address, creator_commision) = fee_module::get_creator_fee(collection_fees,collection_name, price, ctx);
         if( creator_commision > 0 ){
             seller_commission = price - creator_commision - market_commission_by_nft_price;
             let fee_for_creator:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), creator_commision);
@@ -343,7 +337,7 @@ module shoshinmarketplace::marketplace_module {
     }
     public entry fun make_delist_nft<T: key + store >(container_has_nft:&mut Container, nft_id: ID, ctx:&mut TxContext){
         //get listing nft in the container
-        let List<T> {id, container_id:_, seller, item, price:_, current_offer:_, last_offer_id:_} = ofield::remove(&mut container_has_nft.id, nft_id);
+        let List<T> {id, container_id:_, seller, item, price:_} = ofield::remove(&mut container_has_nft.id, nft_id);
 
         //only seller can do it!
         assert!(seller == sender(ctx), EWrongSeller);
@@ -374,7 +368,7 @@ module shoshinmarketplace::marketplace_module {
     }
     public entry fun make_update_listing_price<T: store + key>(container_has_nft:&mut Container, nft_id: ID, new_price: u64, ctx:&mut TxContext){
         //get listing nft in the container
-        let List<T> {id:_, container_id:_, seller, item, price, current_offer:_, last_offer_id:_} = ofield::borrow_mut(&mut container_has_nft.id, nft_id);
+        let List<T> {id:_, container_id:_, seller, item, price} = ofield::borrow_mut(&mut container_has_nft.id, nft_id);
         
         //only seller can do it!
         assert!(seller ==&mut sender(ctx), EWrongSeller);
@@ -440,178 +434,477 @@ module shoshinmarketplace::marketplace_module {
 
 
     /*--------------------------------MARKETPLACE V2-------------------------------*/
-    // /*Offer*/
-    // struct Offer<O: key + store> has key, store {
-    //     id: UID,
-    //     container_id: ID,
-    //     offer_id: u64,
-    //     paid: O, // coin sui
-    //     offer_price: u64,
-    //     offerer: address,
-    // }
+    /*Offer*/
+    struct Offer<O: key + store> has key, store {
+        id: UID,
+        nft_id: ID,
+        container_id: ID,
+        paid: O, // coin sui
+        offer_price: u64,
+        offerer: address,
+        end_time: u64,
+    }
+    /*User make an offer for one nft
+    */
+    struct OfferNftEvent has copy, drop {
+        offer_id: ID,
+        nft_id: ID,
+        offer_price: u64,
+        offerer: address,
+        marketplace_id: ID,//ID of deployed contract
+        expried_at: u64,
+        container_id: ID,
+    }
+    public entry fun make_offer_with_nft<T: store + key>(marketplace:&mut Marketplace, container: &mut Container, marketplace_id: ID, nft_id: ID, offer_price: u64, coin:&mut Coin<SUI>, end_time: u64, ctx:&mut TxContext){
+        // //get nft as dynamic filed in container
+        // let id_of_container_has_nft = object::uid_to_inner(&container_has_nft.id);
+        // let current_nft_in_market = ofield::borrow_mut<ID,List<T>>(&mut container_has_nft.id, nft_id);
+        // //condition checking
+        // assert!(tx_context::sender(ctx) != current_nft_in_market.seller, EWasOwned);//owner cannot offer for your nft.
 
-    // /*Auctions*/
-    // struct Nft_Auction<T: key + store, C: key + store> has key, store {
-    //     id: UID,
-    //     container_id: ID,
-    //     item: T,
-    //     min_bid: u64,
-    //     min_bid_increment: u64,
-    //     start_time: u64,
-    //     end_time: u64,
-    //     current_bid: u64,
-    //     owner: address,
-    //     bid: C,
-    //     bidder: address,
-    // }
+        // //check current container stored the nft is stable to store offer also or not
+        // if(container_has_nft.objects_in_list < marketplace.container_maximum_size ){
+        //     //create new offer
+        //     let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), offer_price);
+        //     //store the offer into container have that nft.
+        //     let offer = Offer<Coin<SUI>>{
+        //         id: object::new(ctx),
+        //         nft_id: nft_id,
+        //         container_id: id_of_container_has_nft,
+        //         paid: coin::from_balance(offer_balance,ctx),
+        //         offer_price: offer_price,
+        //         offerer: tx_context::sender(ctx),
+        //         end_time: end_time
+        //     };
 
-    // /*Owner make offer for nft
-    // */
-    // struct OfferNftEvent has copy, drop {
-    //     offer_id: ID,
-    //     nft_id: ID,
-    //     offer_price: u64,
-    //     offerer: address,
-    // }
-    // public entry fun make_offer<T: store + key>(marketplace:&mut Marketplace, container_have_nft:&mut Container, lastest_container:&mut Container, nft_id: ID, clock:& Clock, offer_price: u64, coin:&mut Coin<SUI>, ctx:&mut TxContext){
-    //     //get nft as dynamic filed in container
-    //     let id_of_container_have_nft = object::uid_to_inner(&container_have_nft.id);
-    //     let current_listing = ofield::borrow_mut<ID,List<T>>(&mut container_have_nft.id, nft_id);
-    //     let current_time = clock::timestamp_ms(clock);
-    //     //condition checking
-    //     assert!(tx_context::sender(ctx) != current_listing.seller, EWasOwned);
-    //     assert!(offer_price > current_listing.current_offer, EWrongOfferPrice);
-    //     assert!(offer_price > current_listing.price, EWrongOfferPrice);
-    //     assert!(current_listing.end_time > current_time, EListWasEnded);
-    //     //check current container stored the nft is stable to store offer
-    //     if( vector::length(&container_have_nft.objects_in_list) < MAXIMUM_CONTAINER_SIZE ){
-    //         //create new offer
-    //         let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), offer_price);
-    //         let offer = Offer<Coin<SUI>>{
-    //             id: object::new(ctx),
-    //             container_id: id_of_container_have_nft,
-    //             offer_id: current_listing.last_offer_id + 1,
-    //             paid: coin::from_balance(offer_balance,ctx),
-    //             offerer: tx_context::sender(ctx),
-    //             offer_price : offer_price
-    //         };
+        //     //emit event
+        //     event::emit(OfferNftEvent{
+        //         offer_id: object::id(&offer),
+        //         nft_id: nft_id,
+        //         offer_price: offer_price,
+        //         offerer: tx_context::sender(ctx),
+        //         marketplace_id: marketplace_id
+        //     });
 
-    //         //update current listing data: offer_price, last_offer_id
-    //         current_listing.current_offer = offer_price;
-    //         current_listing.last_offer_id = current_listing.last_offer_id+1;
-    //         //emit event
-    //         event::emit(OfferNftEvent{
-    //             offer_id: object::id(&offer),
-    //             nft_id: nft_id,
-    //             offer_price: offer_price,
-    //             offerer: tx_context::sender(ctx),
-    //         });
+        //     //add offer to current container that store the nfts in marketplace
+        //     container_has_nft.objects_in_list = container_has_nft.objects_in_list + 1;
+        //     ofield::add(&mut container_has_nft.id, object::id(&offer), offer);
+        // }
+        // else {
+        /*check current container on param is stable to store the offer*/
+        let need_to_create_new_container = check_need_create_new_container(marketplace, container);
+        if(need_to_create_new_container == true){
+            let _ = update_status_full_of_container_size(marketplace, container);
+            //update status of container.
+            let new_container = create_new_container(marketplace,ctx);
+            //create new offer
+            let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), offer_price);
+            let offer = Offer<Coin<SUI>>{
+                id: object::new(ctx),
+                nft_id: nft_id,
+                container_id: object::uid_to_inner(&new_container.id),
+                paid: coin::from_balance(offer_balance,ctx),
+                offer_price: offer_price,
+                offerer: tx_context::sender(ctx),
+                end_time: end_time
+            };
 
-    //         //add offer to current container that store the nfts in marketplace
-    //         vector::push_back(&mut container_have_nft.objects_in_list,object::id(&offer));
-    //         ofield::add(&mut container_have_nft.id, object::id(&offer), offer);
-    //     }
-    //     else {
-    //     /*check current container on param is stable to store the offer*/
-    //     let need_to_create_new_container = check_need_create_new_container(marketplace,lastest_container);
-    //     if(need_to_create_new_container == true){
-    //         //update status of container.
-    //         let _ = update_status_of_container_by_shared_ID(marketplace, lastest_container);
-    //         let new_container = create_new_container(marketplace,ctx);
-    //         //create new offer
-    //         let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), offer_price);
-    //         let offer = Offer<Coin<SUI>>{
-    //             id: object::new(ctx),
-    //             container_id: object::uid_to_inner(&new_container.id),
-    //             offer_id: current_listing.last_offer_id + 1,
-    //             paid: coin::from_balance(offer_balance,ctx),
-    //             offerer: tx_context::sender(ctx),
-    //             offer_price : offer_price
-    //         };
+            //emit event
+            event::emit(OfferNftEvent{
+                offer_id: object::id(&offer),
+                nft_id: nft_id,
+                offer_price: offer_price,
+                offerer: tx_context::sender(ctx),
+                marketplace_id: marketplace_id,
+                expried_at: end_time,
+                container_id: object::uid_to_inner(&new_container.id)
+            });
+            //add offer to the newest container in marketplace
+            new_container.objects_in_list = new_container.objects_in_list + 1;
+            ofield::add(&mut new_container.id, object::id(&offer), offer);
 
-    //         //update current listing data: offer_price, last_offer_id
-    //         current_listing.current_offer = offer_price;
-    //         current_listing.last_offer_id = current_listing.last_offer_id+1;
-    //         //emit event
-    //         event::emit(OfferNftEvent{
-    //             offer_id: object::id(&offer),
-    //             nft_id: nft_id,
-    //             offer_price: offer_price,
-    //             offerer: tx_context::sender(ctx),
-    //         });
-    //         //add offer to the newest container in marketplace
-    //         vector::push_back(&mut new_container.objects_in_list,object::id(&offer));
-    //         ofield::add(&mut new_container.id, object::id(&offer), offer);
+            //emit event for create container
+            event::emit(EventCreateContainer{
+            container_id: object::id(&new_container)
+            });
+            //public container on chain
+            transfer::share_object(new_container);
+        }
+        else {
+            //the lastest container is stable to store this offer
+            //create new offer
+            let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), offer_price);
+            let offer = Offer<Coin<SUI>>{
+                id: object::new(ctx),
+                nft_id: nft_id,
+                container_id: object::uid_to_inner(&container.id),
+                paid: coin::from_balance(offer_balance,ctx),
+                offer_price: offer_price,
+                offerer: tx_context::sender(ctx),
+                end_time: end_time
+            };
 
-    //         //emit event for create container
-    //         event::emit(EventCreateContainer{
-    //         container_id: object::id(&new_container)
-    //         });
-    //         //public container on chain
-    //         transfer::share_object(new_container);
-    //     }
-    //     else {
-    //         //the lastest container is stable to store this offer
-    //         //create new offer
-    //         let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), offer_price);
-    //         let offer = Offer<Coin<SUI>>{
-    //             id: object::new(ctx),
-    //             container_id: object::uid_to_inner(&lastest_container.id),
-    //             offer_id: current_listing.last_offer_id + 1,
-    //             paid: coin::from_balance(offer_balance,ctx),
-    //             offerer: tx_context::sender(ctx),
-    //             offer_price : offer_price
-    //         };
+            //emit event
+            event::emit(OfferNftEvent{
+                offer_id: object::id(&offer),
+                nft_id: nft_id,
+                offer_price: offer_price,
+                offerer: tx_context::sender(ctx),
+                marketplace_id: marketplace_id,
+                expried_at: end_time,
+                container_id: object::uid_to_inner(&container.id)
+            });
+            //add offer to lastest container in marketplace
+            container.objects_in_list = container.objects_in_list + 1;
+            ofield::add(&mut container.id, object::id(&offer), offer);
+        }
+    }
 
-    //         //update current listing data: offer_price, last_offer_id
-    //         current_listing.current_offer = offer_price;
-    //         current_listing.last_offer_id = current_listing.last_offer_id+1;
-    //         //emit event
-    //         event::emit(OfferNftEvent{
-    //             offer_id: object::id(&offer),
-    //             nft_id: nft_id,
-    //             offer_price: offer_price,
-    //             offerer: tx_context::sender(ctx),
-    //         });
+    struct UpdateOfferNftEvent has copy, drop {
+        offer_id: ID,
+        nft_id: ID,
+        container_id: ID,
+        new_offer_price: u64,
+        offerer: address,
+    } 
+    /*UPDATE OFFER*/
+    public entry fun make_update_offer(marketplace:&mut Marketplace, container_has_offer:&mut Container, nft_id: ID, offer_id: ID, new_offer: u64, coin:&mut Coin<SUI>, clock:&Clock, ctx:&mut TxContext){
 
-    //         //add offer to lastest container in marketplace
-    //         vector::push_back(&mut lastest_container.objects_in_list,object::id(&offer));
-    //         ofield::add(&mut lastest_container.id, object::id(&offer), offer);
-    //     }
-    // }
-    // }
+        let id_of_container = &mut container_has_offer.id;
+        let Offer<Coin<SUI>>{id,nft_id:_,container_id:_ , paid, offer_price, offerer,end_time} = ofield::remove(id_of_container,offer_id);
+        let current_time = clock::timestamp_ms(clock);
 
-    // struct DeleteOfferEvent has copy, drop {
-    //     nft_id: ID,
-    //     offerer: address
-    // }
-    // /*make delete offer*/
-    // public entry fun make_delete_offer<T: store + key>(container_have_offer: &mut Container, nft_id: ID, id_offer: ID, ctx: &mut TxContext){
+        assert!(current_time < end_time,EListWasEnded);
+        assert!(offerer == sender(ctx),EOwnerOnly);
         
-    //     //remove id of offer in current container
-    //     let index = 0;
-    //     let id_list =&mut container_have_offer.objects_in_list;
-    //     let length_of_id_list = vector::length(id_list);
-       
+        let new_offer_end_time = end_time;
 
-    //     let Offer<Coin<SUI>>{id, container_id:_ ,offer_id:_, paid, offer_price, offerer} = ofield::remove(&mut container_have_offer.id,id_offer);
-    //     event::emit(DeleteOfferEvent{
-    //         nft_id: nft_id,
-    //         offerer: *offerer
-    //     });
+        //delete old offer
+        container_has_offer.objects_in_list = container_has_offer.objects_in_list - 1;
+        //tranfer old coin to offerer
+        transfer::public_transfer(paid, offerer);
+        object::delete(id);
 
-    //     while( index < length_of_id_list){
-    //     let item_in_id_list = vector::borrow(id_list,index);
+        /*Create new offer*/
+        /*check current container on param is stable to store the offer*/
+        let need_to_create_new_container = check_need_create_new_container(marketplace,container_has_offer);
+
+        if(need_to_create_new_container){
+            let _ = update_status_full_of_container_size(marketplace, container_has_offer);
+            let new_container = create_new_container(marketplace,ctx);
+            //create new offer
+            let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), new_offer);
+            let offer = Offer<Coin<SUI>>{
+                id: object::new(ctx),
+                nft_id: nft_id,
+                container_id: object::uid_to_inner(&new_container.id),
+                paid: coin::from_balance(offer_balance,ctx),
+                offer_price: new_offer,
+                offerer: tx_context::sender(ctx),
+                end_time: new_offer_end_time
+            };
+
+            //emit event
+            event::emit(UpdateOfferNftEvent{
+                offer_id: object::id(&offer),
+                nft_id: nft_id,
+                container_id: object::uid_to_inner(&new_container.id),
+                new_offer_price: new_offer,
+                offerer: tx_context::sender(ctx)
+            });
+            //add offer to the newest container in marketplace
+            new_container.objects_in_list = new_container.objects_in_list + 1;
+            ofield::add(&mut new_container.id, object::id(&offer), offer);
+
+            //emit event for create container
+            event::emit(EventCreateContainer{
+            container_id: object::id(&new_container)
+            });
+            //public container on chain
+            transfer::share_object(new_container);
+        }
+        else{
+            //create new offer
+            let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(coin), new_offer);
+            let offer = Offer<Coin<SUI>>{
+                id: object::new(ctx),
+                nft_id: nft_id,
+                container_id: object::uid_to_inner(&container_has_offer.id),
+                paid: coin::from_balance(offer_balance,ctx),
+                offer_price: new_offer,
+                offerer: tx_context::sender(ctx),
+                end_time: new_offer_end_time,
+            };
+
+            //emit event
+            event::emit(UpdateOfferNftEvent{
+                offer_id: object::id(&offer),
+                nft_id: nft_id,
+                container_id: object::uid_to_inner(&container_has_offer.id),
+                new_offer_price: new_offer,
+                offerer: tx_context::sender(ctx)
+            });
+            //add offer to the newest container in marketplace
+            container_has_offer.objects_in_list = container_has_offer.objects_in_list + 1;
+            ofield::add(&mut container_has_offer.id, object::id(&offer), offer);
+        }
+    }
+
+    struct DeleteOfferEvent has copy, drop {
+        offer_id: ID,
+        nft_id: ID,
+        offerer: address
+    }
+    /*make delete offer*/
+    public entry fun make_user_delete_offer(container_has_offer: &mut Container, nft_id: ID, id_offer: ID, ctx: &mut TxContext){
         
-    //     if(*item_in_id_list == id_offer){
-    //         let id_need_rm = vector::remove(id_list,index);
-    //         object::delete(id)
-    //     };
-    //     index = index + 1;
-    //     };
+        let container_id =&mut container_has_offer.id;
+        let Offer<Coin<SUI>>{id, nft_id:_, container_id:_ , paid, offer_price, offerer, end_time} = ofield::remove(container_id,id_offer);
+        assert!(offerer == sender(ctx),EOwnerOnly);
 
-    //     let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(paid), *offer_price);
-    //     transfer::public_transfer(coin::from_balance(offer_balance, ctx), *offerer); 
-    //     object::delete(id)
-    // }
+        container_has_offer.objects_in_list = container_has_offer.objects_in_list - 1;
+        event::emit(DeleteOfferEvent{
+            offer_id: object::uid_to_inner(&id),
+            nft_id: nft_id,
+            offerer: offerer
+        });
+
+        transfer::public_transfer(paid, offerer);
+        object::delete(id)
+    }
+
+    struct AdminReturnOfferEvent has copy, drop {
+        offer_id: ID,
+        nft_id: ID,
+        offerer: address
+    }
+    /*admin return offer*/
+    public entry fun make_admin_return_offer(container_has_offer: &mut Container, admin:&mut Admin,nft_id: ID, id_offer: ID, clock: &Clock, ctx: &mut TxContext){
+        
+        let container_id =&mut container_has_offer.id;
+        let current_time = clock::timestamp_ms(clock);
+        let Offer<Coin<SUI>>{id, nft_id:_, container_id:_ , paid, offer_price, offerer, end_time} = ofield::remove(container_id,id_offer);
+        
+        //requirement
+        assert!(offerer == admin.address,EOwnerOnly);
+        assert!(current_time > end_time, EOfferDuration);
+
+        container_has_offer.objects_in_list = container_has_offer.objects_in_list - 1;
+        event::emit(DeleteOfferEvent{
+            offer_id: object::uid_to_inner(&id),
+            nft_id: nft_id,
+            offerer: offerer
+        });
+
+        // let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(paid), *offer_price);
+        // transfer::public_transfer(coin::from_balance(offer_balance, ctx), *offerer);
+        //return coin back to offerer
+        transfer::public_transfer(paid, offerer); 
+        object::delete(id)
+    }
+
+    struct OwnerAcceptOfferWithListedNftEvent has copy, drop {
+        nft_id: ID,
+        offer_price: u64,
+        seller: address,
+        new_nft_owner: address
+    }
+    public entry fun make_owner_accept_offer_listed<T: store + key>(marketplace:&mut Marketplace, admin:&mut Admin, collection_fees:&mut FeeContainer, container_has_nft: &mut Container, container_has_offer: &mut Container, nft_id: ID, offer_id: ID, clock: &Clock, ctx: &mut TxContext){
+        
+        //seller commision
+        let seller_commission:u64 = 0;
+        let current_time = clock::timestamp_ms(clock);
+        let nft_container_id =&mut container_has_nft.id;
+        let offer_container_id=&mut container_has_offer.id;
+        let List<T> {id: nft_in_container_id, container_id:_, seller, item:nft, price:_} = ofield::remove(&mut container_has_nft.id, nft_id);
+        assert!(seller == sender(ctx), EWrongSeller);//only seller can accept offer
+        
+        let Offer<Coin<SUI>>{id: offer_in_container_id, nft_id:_, container_id:_ , paid, offer_price, offerer, end_time} = ofield::remove(offer_container_id, offer_id);
+        assert!(current_time < end_time, EOfferDuration);
+            
+        //FEE
+        //transfer fee to seller, service fee to marketplace admin, collections fee to owner.
+        let marketplace_commission_by_nft_price = (offer_price * marketplace.market_commission_numerator) / (100 * marketplace.market_commission_denominator);
+        //get collection_name from type T
+        let collection_name = string::from_ascii(type_name::into_string(type_name::get<T>()));
+        let (creator_address, creator_commision) = fee_module::get_creator_fee(collection_fees, collection_name, offer_price,ctx);
+
+        if(creator_commision > 0){
+            seller_commission = offer_price - creator_commision - marketplace_commission_by_nft_price;
+            //split fee for creator from balance coin that user send to offer 
+            let fee_for_creator:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), creator_commision);
+            transfer::public_transfer(coin::from_balance(fee_for_creator, ctx), creator_address)
+        }else{
+            seller_commission = offer_price - marketplace_commission_by_nft_price;
+        };
+
+        let fee_for_market:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), marketplace_commission_by_nft_price);
+        let fee_for_seller:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), seller_commission);
+        
+
+        event::emit(OwnerAcceptOfferWithListedNftEvent{
+            nft_id: nft_id,
+            offer_price: offer_price,
+            seller: seller,
+            new_nft_owner: offerer
+        });
+
+        /*update status of containers*/
+        container_has_offer.objects_in_list =  container_has_offer.objects_in_list - 1;
+        container_has_nft.objects_in_list =  container_has_nft.objects_in_list - 1;
+
+        /*
+        Transfer fee to market admin, nft owner, collection creator
+        */
+        transfer::public_transfer(coin::from_balance(fee_for_market, ctx), admin.receive_address);
+        transfer::public_transfer(coin::from_balance(fee_for_seller, ctx), seller);
+        //transfer nft to offerer
+        transfer::public_transfer(nft,offerer);
+        transfer::public_transfer(paid, offerer);
+        //remove nft and offer out of their container
+        object::delete(nft_in_container_id);
+        object::delete(offer_in_container_id);
+    }
+
+
+    /**ACCEPT OFFER WITH NON-LISTED NFT*/
+    struct OwnerAcceptOfferWithNonListedNftEvent has copy, drop {
+        nft_id: ID,
+        offer_price: u64,
+        seller: address,
+        new_nft_owner: address
+    }
+    public entry fun make_owner_accept_offer_with_non_listed<T: key + store>(marketplace:&mut Marketplace, admin:&mut Admin, collection_fees:&mut FeeContainer, container_has_offer: &mut Container, nft_id: ID, offer_id: ID, clock: &Clock, marketplace_package_id: ID, nft: T, ctx: &mut TxContext){
+        
+        //seller commision
+        let seller_commission:u64 = 0;
+        let current_time = clock::timestamp_ms(clock);
+        let offer_container_id=&mut container_has_offer.id;
+        
+        let Offer<Coin<SUI>>{id: offer_in_container_id, nft_id, container_id:_ , paid, offer_price, offerer, end_time} = ofield::remove(offer_container_id, offer_id);
+                    
+        assert!(current_time < end_time, EOfferDuration);
+        assert!(nft_id == object::id(&nft), ENotTheSameNft);
+         
+
+        // //owner store nft in our marketplace.
+        // let need_to_create_new_container = check_need_create_new_container(marketplace,container_has_offer);
+        
+        // if(need_to_create_new_container == true){
+        //     let _ = update_status_full_of_container_size(marketplace, container_has_offer);
+        //     let new_container = create_new_container(marketplace,ctx);
+        //     let nft_id = object::id(&nft);
+
+        //     let listing = List<T>{
+        //     id: object::new(ctx),
+        //     container_id: object::id(&new_container),
+        //     seller: tx_context::sender(ctx),
+        //     item: nft,
+        //     price: 0,              
+        //     };
+
+        //     //add new listed into container
+        //     new_container.objects_in_list =  new_container.objects_in_list + 1;
+        //     ofield::add(&mut new_container.id, nft_id, listing);
+            
+        //     //get listed to transfer to offerer
+        //     let List<T> {id: nft_in_container_id, container_id:_, seller, item:nft_listed, price:_} = ofield::remove(&mut new_container.id, nft_id);
+        //     //FEE
+        //     //transfer fee to seller, service fee to marketplace admin, collections fee to owner.
+        //     let marketplace_commission_by_nft_price = (offer_price * marketplace.market_commission_numerator) / (100 * marketplace.market_commission_denominator);
+        //     //get collection_name from type T
+        //     let collection_name = string::from_ascii(type_name::into_string(type_name::get<T>()));
+        //     let (creator_address, creator_commision) = fee_module::get_creator_fee(collection_fees, collection_name, offer_price,ctx);  
+
+        //     if(creator_commision > 0){
+        //         seller_commission = offer_price - creator_commision - marketplace_commission_by_nft_price;
+        //         //split fee for creator from balance coin that user send to offer 
+        //         let fee_for_creator:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), creator_commision);
+        //         transfer::public_transfer(coin::from_balance(fee_for_creator, ctx), creator_address)
+        //     }else {
+        //         seller_commission = offer_price - marketplace_commission_by_nft_price;
+        //     };
+
+        //     let fee_for_market:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), marketplace_commission_by_nft_price);
+        //     let fee_for_seller:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), seller_commission);
+
+        //     /*update status of containers*/
+        //     //remove new listed into container
+        //     new_container.objects_in_list =  new_container.objects_in_list - 1;
+        //     //add new listed into container
+        //     container_has_offer.objects_in_list =  container_has_offer.objects_in_list - 1;
+            
+        //     /*
+        //     Transfer fee to market admin, nft owner, collection creator
+        //     */
+        //     transfer::public_transfer(coin::from_balance(fee_for_market, ctx), admin.receive_address);
+        //     transfer::public_transfer(coin::from_balance(fee_for_seller, ctx), seller);
+        //     //transfer nft to offerer
+        //     transfer::public_transfer(nft_listed,offerer);
+        //     transfer::public_transfer(paid, offerer);
+        //     //remove nft and offer out of their container
+        //     object::delete(nft_in_container_id);
+        //     object::delete(offer_in_container_id);
+
+        //     transfer::share_object(new_container);
+        // }
+        // else {
+            // let nft_id = object::id(&nft);
+
+            // let listing = List<T>{
+            // id: object::new(ctx),
+            // container_id: object::uid_to_inner(& container_has_offer.id),
+            // seller: tx_context::sender(ctx),
+            // item: nft,
+            // price: 0,              
+            // };
+            
+            // //add new listed into container
+            // container_has_offer.objects_in_list =  container_has_offer.objects_in_list + 1;
+            // ofield::add(&mut container_has_offer.id, nft_id, listing);
+            
+            // //get listed to transfer to offerer
+            // let List<T> {id: nft_in_container_id, container_id:_, seller, item:nft_listed, price:_} = ofield::remove(&mut container_has_offer.id, nft_id);
+
+            //FEE
+            //transfer fee to seller, service fee to marketplace admin, collections fee to owner.
+            let marketplace_commission_by_nft_price = (offer_price * marketplace.market_commission_numerator) / (100 * marketplace.market_commission_denominator);
+            //get collection_name from type T
+            let collection_name = string::from_ascii(type_name::into_string(type_name::get<T>()));
+            let (creator_address, creator_commision) = fee_module::get_creator_fee(collection_fees, collection_name, offer_price,ctx);
+
+            if(creator_commision > 0){
+                seller_commission = offer_price - creator_commision - marketplace_commission_by_nft_price;
+                //split fee for creator from balance coin that user send to offer 
+                let fee_for_creator:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), creator_commision);
+                transfer::public_transfer(coin::from_balance(fee_for_creator, ctx), creator_address)
+            }else {
+                seller_commission = offer_price - marketplace_commission_by_nft_price;
+            };
+
+            let fee_for_market:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), marketplace_commission_by_nft_price);
+            let fee_for_seller:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), seller_commission);
+
+            /*update status of containers*/
+            container_has_offer.objects_in_list =  container_has_offer.objects_in_list - 1;  
+            
+            event::emit(OwnerAcceptOfferWithNonListedNftEvent{
+                nft_id: nft_id,
+                offer_price: offer_price,
+                seller: sender(ctx),
+                new_nft_owner: offerer
+            });
+            /*
+            Transfer fee to market admin, nft owner, collection creator
+            */
+            transfer::public_transfer(coin::from_balance(fee_for_market, ctx), admin.receive_address);
+            transfer::public_transfer(coin::from_balance(fee_for_seller, ctx), sender(ctx));
+            //transfer nft to offerer
+            transfer::public_transfer(nft, offerer);
+            transfer::public_transfer(paid, offerer);
+            //remove nft and offer out of their container
+            //object::delete(nft_in_container_id);
+            object::delete(offer_in_container_id);     
+        }
+    //}
 }   
