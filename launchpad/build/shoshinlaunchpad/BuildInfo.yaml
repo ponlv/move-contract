@@ -1,0 +1,25 @@
+---
+compiled_package_info:
+  package_name: shoshinlaunchpad
+  address_alias_instantiation:
+    shoshinlaunchpad: "0000000000000000000000000000000000000000000000000000000000000000"
+    shoshinwhitelist: cdaaa422226ce8eb4abe00e0babe1f9c47a524a2990f0b303e1c5380ac033f8f
+    std: "0000000000000000000000000000000000000000000000000000000000000001"
+    sui: "0000000000000000000000000000000000000000000000000000000000000002"
+  source_digest: 6BEBEE1CA56D487DEDDBF10DED9E1AFA23D91E205A14706D11A884B6A03D22E7
+  build_flags:
+    dev_mode: false
+    test_mode: false
+    generate_docs: false
+    generate_abis: false
+    install_dir: ~
+    force_recompilation: false
+    lock_file: "./Move.lock"
+    additional_named_addresses: {}
+    architecture: ~
+    fetch_deps_only: false
+    skip_fetch_latest_git_deps: true
+dependencies:
+  - MoveStdlib
+  - Sui
+  - shoshinwhitelist
