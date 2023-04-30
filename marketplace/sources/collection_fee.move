@@ -1,4 +1,4 @@
-module collection_fee::fee_module{
+module shoshinmarketplace::collection_fee_module {
     use sui::object::{Self,ID,UID};
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
@@ -11,8 +11,8 @@ module collection_fee::fee_module{
     const EFeeWrongLimit:u64 = 1;
     const ENotExisted:u64 = 2;
         
-    const DEFAULT_SERVICE_FEE:u64 = 25; // fee x 10
-    const MAXIMUM_OBJECT_SIZE:u64 = 3000;
+    const DEFAULT_SERVICE_FEE:u64 = 25;
+    const MAXIMUM_OBJECT_SIZE:u64 = 1000;
 
     struct FeeElement has store, drop, copy {
         collection_name: String,
@@ -319,27 +319,27 @@ module collection_fee::fee_module{
                 let current_fee_length = vector::length(&fee_elements);
                 
                 while(fee_loop_index < current_fee_length) {
-                // get whitelist in array with index
-                let current_fee_element = vector::borrow(&mut fee_elements, fee_loop_index);
-                // check exist
-                if ( collection_name == current_fee_element.collection_name ) {
-                    result = current_fee_element.creator_fee * amount / (1000*100);
-                    result_address = current_fee_element.reciver_address;
-                    is_stop = true;
-                };
-                fee_loop_index = fee_loop_index + 1;
+                    // get whitelist in array with index
+                    let current_fee_element = vector::borrow(&mut fee_elements, fee_loop_index);
+                    // check exist
+                    if ( collection_name == current_fee_element.collection_name ) {
+                        result = current_fee_element.creator_fee * amount / (100 * 1000);
+                        result_address = current_fee_element.reciver_address;
+                        is_stop = true;
+                    };
+                    fee_loop_index = fee_loop_index + 1;
                 };
                 if (is_stop == true) {
                     break
                 };
 
-            index = index + 1;
+                index = index + 1;
             };
             (result_address, result)
         }
     }
 
     public fun get_service_fee(fee_container: &mut FeeContainer, amount: u64):u64 {
-        fee_container.default_service_fee * amount / (1000*100)
+        fee_container.default_service_fee * amount / (100 * 1000)
     }
 }
