@@ -864,12 +864,13 @@ module shoshinmarketplace::marketplace_module {
         object::delete(offer_in_container_id);
     }
 
-    public entry fun make_accept_offer_with_non_listed_nft<T: key + store>(marketplace:&mut Marketplace, admin:&mut Admin, collection_fees:&mut FeeContainer, container_has_offer: &mut Container, nft_id: ID, offer_id: ID, clock: &Clock, nft: T, ctx: &mut TxContext){
+    public entry fun make_accept_offer_with_non_listed_nft<T: key + store>(marketplace:&mut Marketplace, admin:&mut Admin, collection_fees:&mut FeeContainer, container_has_offer: &mut Container, offer_id: ID, clock: &Clock, nft: T, ctx: &mut TxContext){
         
         //seller commision
         let seller_commission:u64 = 0;
         let current_time = clock::timestamp_ms(clock);
         let offer_container_id=&mut container_has_offer.id;
+        let nft_id = object::id(&nft);
         
         let Offer<Coin<SUI>>{id: offer_in_container_id, nft_id, container_id:_ , paid, offer_price, offerer, end_time} = ofield::remove(offer_container_id, offer_id);
                     
