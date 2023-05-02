@@ -32,12 +32,12 @@ module shoshinlaunchpad::launchpad_module {
         const EIsRoundPublic:u64 = 29;
         const ERoundClosed:u64 = 30;
 
-        const MAXIMUM_OBJECT_SIZE:u64 = 50;
+        const MAXIMUM_OBJECT_SIZE:u64 = 100;
 
 
         struct Admin has key {
                 id: UID,
-                address: address,
+                enable_addresses: vector<address>,
         }
 
         struct Round has key,store {
@@ -73,11 +73,42 @@ module shoshinlaunchpad::launchpad_module {
         }
 
         fun init(ctx:&mut TxContext) {
+                let sender = tx_context::sender(ctx);
+                let enable_addresses = vector::empty();
+                vector::push_back(&mut enable_addresses, sender);
                 let admin = Admin{
-                        id: object::new(ctx),
-                        address: tx_context::sender(ctx),
+                id: object::new(ctx),
+                        enable_addresses: enable_addresses,
                 };
                 transfer::share_object(admin);
+        }
+
+
+        /***
+        * @dev isAdmin
+        *
+        *
+        * @param admin is admin id
+        * @param new_address
+        * 
+        */
+        public fun isAdmin(admin: &mut Admin, address : address) : bool {
+                let rs = false;
+                let list = admin.enable_addresses;
+
+                let length = vector::length(&list);
+
+                let index = 0;
+
+                while(index < length) {
+                let current = vector::borrow(&list, index);
+                if(*current == address) {
+                        rs = true;
+                        break
+                };
+                index = index + 1;
+                };
+                rs
         }
 
         /***
@@ -88,10 +119,12 @@ module shoshinlaunchpad::launchpad_module {
         * @param new_address
         * 
         */
-        public entry fun change_admin_address(admin:&mut Admin, new_address: address, ctx:&mut TxContext){
+        public entry fun addAdmin(admin:&mut Admin, new_enable_addresses: vector<address>, ctx:&mut TxContext){
+                // check admin
                 let sender = tx_context::sender(ctx);
-                assert!(admin.address == sender,EAdminOnly);
-                admin.address = new_address;
+                assert!(isAdmin(admin, sender) == true, EAdminOnly);
+
+                vector::append(&mut admin.enable_addresses, new_enable_addresses);
         }
 
         struct CreateLaunchpadEvent has copy, drop {
@@ -124,8 +157,7 @@ module shoshinlaunchpad::launchpad_module {
         ) {
                 // check admin
                 let sender = tx_context::sender(ctx);
-                let admin_address = admin.address;
-                assert!(admin_address == sender,EAdminOnly);
+                assert!(isAdmin(admin, sender) == true, EAdminOnly);
 
                 // check total supply
                 let current_total_supply = total_supply;
@@ -292,8 +324,8 @@ module shoshinlaunchpad::launchpad_module {
         ) {
                 // check admin
                 let sender = tx_context::sender(ctx);
-                let admin_address = admin.address;
-                assert!(sender == admin_address, EAdminOnly);
+                assert!(isAdmin(admin, sender) == true, EAdminOnly);
+
                 // calculation commission
                 let commission_value = launchpad.total_pool * commission / 100;
                 let commission_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut launchpad.pool), commission_value);
@@ -354,8 +386,7 @@ module shoshinlaunchpad::launchpad_module {
         ) {
                 // check admin
                 let sender = tx_context::sender(ctx);
-                let admin_address = admin.address;
-                assert!(admin_address == sender,EAdminOnly);
+                assert!(isAdmin(admin, sender) == true, EAdminOnly);
 
                 // withdraw coin
                 withdraw(launchpad, admin, commission, receive_commission_address, owner_receive_address, ctx);
@@ -391,7 +422,9 @@ module shoshinlaunchpad::launchpad_module {
                 project_id: ID,
                 round_id : ID,
                 price : u64,
-                buyer : address
+                buyer : address,
+                amount: u64,
+                nft_ids: vector<ID>
         }
 
         /***
@@ -406,7 +439,7 @@ module shoshinlaunchpad::launchpad_module {
         * @param clock time
         * 
         */
-        public entry fun make_buy_deposit_nft<T: store + key>(whitelist_container: &mut WhitelistContainer ,launchpad: &mut Launchpad, round_id: ID, coin: Coin<SUI>, clock: &Clock, ctx: &mut TxContext) {
+        public entry fun make_buy_deposit_nft<T: store + key>(whitelist_container: &mut WhitelistContainer ,launchpad: &mut Launchpad, round_id: ID, coin: Coin<SUI>, amount: u64, clock: &Clock, ctx: &mut TxContext) {
                 // check owner
                 assert!(launchpad.owner_address != tx_context::sender(ctx), EWasOwned);
                 assert!(launchpad.is_deposit == true, ENotHavePermistion);
@@ -419,6 +452,8 @@ module shoshinlaunchpad::launchpad_module {
                 let index = 0;
                 let count_nft_container_ids = vector::length<ID>(&nft_container_ids);
                 let is_stop = false;
+                let count = 0;
+                let bought_nfts = vector::empty();
                 while(index < count_nft_container_ids) {
                         // get current id
                         let current_container_id = vector::borrow<ID>(&nft_container_ids, index);
@@ -426,14 +461,22 @@ module shoshinlaunchpad::launchpad_module {
                         let container_element = ofield::borrow_mut<ID, NFTContainer<T>>(&mut launchpad.id, *current_container_id);
                         // loop in nft array
                         let count_nfts = vector::length(&container_element.nfts);
-
-                        if(count_nfts > 0) {
+                        while(count < amount && count_nfts > 0) {
+                                // send nft
                                 let current_nft = vector::pop_back(&mut container_element.nfts);
+                                vector::push_back(&mut bought_nfts, object::id(&current_nft));
                                 transfer::public_transfer(current_nft, tx_context::sender(ctx));
-                                is_stop = true;
-                                break
+                                count = count + 1;
+
+                                if(count == amount) {
+                                        is_stop = true;
+                                        break
+                                };
                         };
 
+                        if (is_stop == true) {
+                                break
+                        };
                         index = index + 1;
                 };
                 // check get nft success
@@ -444,32 +487,38 @@ module shoshinlaunchpad::launchpad_module {
                 // get current round
                 let current_round = ofield::borrow_mut<ID,Round>(&mut launchpad.id, round_id);
                 // limit by round
-                assert!(current_round.total_supply > 0, ENotEnoughNft);
+                assert!(current_round.total_supply >= amount, ENotEnoughNft);
                 // check public round
                 assert!(current_round.limit_mint == 0, EIsRoundPublic);
                 // check close
                 assert!(current_round.status == true, ERoundClosed);
                 // check can buy ?
-                whitelist_module::update_whitelist(whitelist_container, 1, tx_context::sender(ctx), current_round.is_public, ctx);
+                whitelist_module::update_whitelist(whitelist_container, amount, tx_context::sender(ctx), current_round.is_public, ctx);
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
                 assert!(current_time < current_round.end_time, ETooLateToBuy);
+                // push coin to pool
+
+                launchpad.total_supply = launchpad.total_supply - amount; 
+                launchpad.total_minted = launchpad.total_minted + amount;
+                launchpad.total_pool = launchpad.total_pool + current_round.price * amount;
+                current_round.total_supply = current_round.total_supply - amount;
+                current_round.total_minted = current_round.total_minted + amount;
+
                 // emit event
                 event::emit(BuyWithDepositNftEvent{
                         project_id,
                         round_id: object::id(current_round),
                         price: current_round.price,
-                        buyer: tx_context::sender(ctx)
+                        buyer: tx_context::sender(ctx),
+                        nft_ids: bought_nfts,
+                        amount,
                 });
-                // push coin to pool
-                let price_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), current_round.price);
+
+
+                let price_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), current_round.price * amount);
                 coin::join(&mut launchpad.pool, coin::from_balance(price_balance, ctx));
-                launchpad.total_supply = launchpad.total_supply - 1; 
-                launchpad.total_minted = launchpad.total_minted + 1;
-                launchpad.total_pool = launchpad.total_pool + current_round.price;
-                current_round.total_supply = current_round.total_supply - 1;
-                current_round.total_minted = current_round.total_minted + 1;
                 transfer::public_transfer(coin, tx_context::sender(ctx));
         }
 
@@ -485,7 +534,7 @@ module shoshinlaunchpad::launchpad_module {
         * @param clock time
         * 
         */
-        public entry fun make_buy_public_deposit_nft<T: store + key>(whitelist_container: &mut WhitelistContainer ,launchpad: &mut Launchpad, round_id: ID, coin: Coin<SUI>, clock: &Clock, ctx: &mut TxContext) {
+        public entry fun make_buy_public_deposit_nft<T: store + key>(whitelist_container: &mut WhitelistContainer ,launchpad: &mut Launchpad, round_id: ID, coin: Coin<SUI>, amount: u64, clock: &Clock, ctx: &mut TxContext) {
                 // check owner
                 assert!(launchpad.owner_address != tx_context::sender(ctx), EWasOwned);
                 assert!(launchpad.is_deposit == true, ENotHavePermistion);
@@ -497,6 +546,8 @@ module shoshinlaunchpad::launchpad_module {
                 let index = 0;
                 let count_nft_container_ids = vector::length<ID>(&nft_container_ids);
                 let is_stop = false;
+                let count = 0;
+                let bought_nfts = vector::empty();
                 while(index < count_nft_container_ids) {
                         // get current id
                         let current_container_id = vector::borrow<ID>(&nft_container_ids, index);
@@ -504,16 +555,25 @@ module shoshinlaunchpad::launchpad_module {
                         let container_element = ofield::borrow_mut<ID, NFTContainer<T>>(&mut launchpad.id, *current_container_id);
                         // loop in nft array
                         let count_nfts = vector::length(&container_element.nfts);
-
-                        if(count_nfts > 0) {
+                        while(count < amount && count_nfts > 0) {
+                                // send nft
                                 let current_nft = vector::pop_back(&mut container_element.nfts);
+                                vector::push_back(&mut bought_nfts, object::id(&current_nft));
                                 transfer::public_transfer(current_nft, tx_context::sender(ctx));
-                                is_stop = true;
-                                break
+                                count = count + 1;
+
+                                if(count == amount) {
+                                        is_stop = true;
+                                        break
+                                };
                         };
 
+                        if (is_stop == true) {
+                                break
+                        };
                         index = index + 1;
                 };
+
                 // check get nft success
                 assert!(is_stop == true, EBuyFail);
 
@@ -522,7 +582,7 @@ module shoshinlaunchpad::launchpad_module {
                 // get current round
                 let current_round = ofield::borrow_mut<ID,Round>(&mut launchpad.id, round_id);
                 // limit by round
-                assert!(current_round.total_supply > 0, ENotEnoughNft);
+                assert!(current_round.total_supply >= amount, ENotEnoughNft);
                 // check public round
                 assert!(current_round.limit_mint != 0, ERoundNotPublic);
                 // check close
@@ -530,35 +590,38 @@ module shoshinlaunchpad::launchpad_module {
                 // check can buy ?
                 let isExistedInWhitelist = whitelist_module::existed(whitelist_container, tx_context::sender(ctx));
                 if(isExistedInWhitelist == true) {
-                        whitelist_module::update_whitelist(whitelist_container, 1, tx_context::sender(ctx), false, ctx);
+                        whitelist_module::update_whitelist(whitelist_container, amount, tx_context::sender(ctx), false, ctx);
                 } else {
                         let wallets = vector::empty();
                         let limits = vector::empty();
                         vector::push_back(&mut wallets, tx_context::sender(ctx));
                         vector::push_back(&mut limits, current_round.limit_mint);
                         whitelist_module::add_whitelist(whitelist_container, wallets, limits, ctx);
-                        whitelist_module::update_whitelist(whitelist_container, 1, tx_context::sender(ctx), false, ctx);
+                        whitelist_module::update_whitelist(whitelist_container, amount, tx_context::sender(ctx), false, ctx);
 
                 };
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
                 assert!(current_time < current_round.end_time, ETooLateToBuy);
+
+                launchpad.total_supply = launchpad.total_supply - amount; 
+                launchpad.total_minted = launchpad.total_minted + amount;
+                launchpad.total_pool = launchpad.total_pool + current_round.price * amount;
+                current_round.total_supply = current_round.total_supply - amount;
+                current_round.total_minted = current_round.total_minted + amount;
                 // emit event
                 event::emit(BuyWithDepositNftEvent{
                         project_id,
                         round_id: object::id(current_round),
                         price: current_round.price,
-                        buyer: tx_context::sender(ctx)
+                        buyer: tx_context::sender(ctx),
+                        amount,
+                        nft_ids: bought_nfts,
                 });
                 // push coin to pool
-                let price_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), current_round.price);
+                let price_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), current_round.price * amount);
                 coin::join(&mut launchpad.pool, coin::from_balance(price_balance, ctx));
-                launchpad.total_supply = launchpad.total_supply - 1; 
-                launchpad.total_minted = launchpad.total_minted + 1;
-                launchpad.total_pool = launchpad.total_pool + current_round.price;
-                current_round.total_supply = current_round.total_supply - 1;
-                current_round.total_minted = current_round.total_minted + 1;
                 transfer::public_transfer(coin, tx_context::sender(ctx));
         }
 
@@ -566,7 +629,8 @@ module shoshinlaunchpad::launchpad_module {
                 project_id: ID,
                 round_id : ID,
                 price : u64,
-                buyer : address
+                buyer : address,
+                amount: u64
         }
 
         /***
@@ -581,7 +645,7 @@ module shoshinlaunchpad::launchpad_module {
         * @param clock time
         * 
         */
-        public entry fun make_buy_mint_nft<T: store + key>(whitelist_container: &mut WhitelistContainer, launchpad: &mut Launchpad, round_id: ID, coin: Coin<SUI>, clock: &Clock, ctx: &mut TxContext) {
+        public entry fun make_buy_mint_nft<T: store + key>(whitelist_container: &mut WhitelistContainer, launchpad: &mut Launchpad, round_id: ID, coin: Coin<SUI>, amount: u64, clock: &Clock, ctx: &mut TxContext) {
                 // check owner
                 assert!(launchpad.owner_address != tx_context::sender(ctx), EWasOwned);
                 assert!(launchpad.is_deposit == false, ENotHavePermistion);
@@ -593,13 +657,13 @@ module shoshinlaunchpad::launchpad_module {
                 // get current round
                 let current_round = ofield::borrow_mut<ID,Round>(&mut launchpad.id, round_id);
                 // limit by round
-                assert!(current_round.total_supply > 0, ENotEnoughNft);
+                assert!(current_round.total_supply >= amount, ENotEnoughNft);
                 // check public round
                 assert!(current_round.limit_mint == 0, EIsRoundPublic);
                 // check close
                 assert!(current_round.status == true, ERoundClosed);
                 // check can buy ?
-                whitelist_module::update_whitelist(whitelist_container, 1, tx_context::sender(ctx), current_round.is_public, ctx);
+                whitelist_module::update_whitelist(whitelist_container, amount, tx_context::sender(ctx), current_round.is_public, ctx);
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
@@ -609,16 +673,18 @@ module shoshinlaunchpad::launchpad_module {
                         project_id,
                         round_id: object::id(current_round),
                         price: current_round.price,
-                        buyer: tx_context::sender(ctx)
+                        buyer: tx_context::sender(ctx),
+                        amount,
                 });
+                launchpad.total_supply = launchpad.total_supply - amount; 
+                launchpad.total_minted = launchpad.total_minted + amount;
+                launchpad.total_pool = launchpad.total_pool + current_round.price * amount;
+                current_round.total_supply = current_round.total_supply - amount;
+                current_round.total_minted = current_round.total_minted + amount;
+
                 // push coin to pool
-                let price_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), current_round.price);
+                let price_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), current_round.price * amount);
                 coin::join(&mut launchpad.pool, coin::from_balance(price_balance, ctx));
-                launchpad.total_supply = launchpad.total_supply - 1; 
-                launchpad.total_minted = launchpad.total_minted + 1;
-                launchpad.total_pool = launchpad.total_pool + current_round.price;
-                current_round.total_supply = current_round.total_supply - 1;
-                current_round.total_minted = current_round.total_minted + 1;
                 transfer::public_transfer(coin, tx_context::sender(ctx));
         }
 
@@ -634,7 +700,7 @@ module shoshinlaunchpad::launchpad_module {
         * @param clock time
         * 
         */
-        public entry fun make_buy_public_mint_nft<T: store + key>(whitelist_container: &mut WhitelistContainer, launchpad: &mut Launchpad, round_id: ID, coin: Coin<SUI>, clock: &Clock, ctx: &mut TxContext) {
+        public entry fun make_buy_public_mint_nft<T: store + key>(whitelist_container: &mut WhitelistContainer, launchpad: &mut Launchpad, round_id: ID, coin: Coin<SUI>, amount: u64, clock: &Clock, ctx: &mut TxContext) {
                 // check owner
                 assert!(launchpad.owner_address != tx_context::sender(ctx), EWasOwned);
                 assert!(launchpad.is_deposit == false, ENotHavePermistion);
@@ -646,7 +712,7 @@ module shoshinlaunchpad::launchpad_module {
                 // get current round
                 let current_round = ofield::borrow_mut<ID,Round>(&mut launchpad.id, round_id);
                 // limit by round
-                assert!(current_round.total_supply > 0, ENotEnoughNft);
+                assert!(current_round.total_supply >= amount, ENotEnoughNft);
                 // check close
                 assert!(current_round.status == true, ERoundClosed);
                 // check public round
@@ -654,14 +720,14 @@ module shoshinlaunchpad::launchpad_module {
                 // check can buy ?
                 let isExistedInWhitelist = whitelist_module::existed(whitelist_container, tx_context::sender(ctx));
                 if(isExistedInWhitelist == true) {
-                        whitelist_module::update_whitelist(whitelist_container, 1, tx_context::sender(ctx), false, ctx);
+                        whitelist_module::update_whitelist(whitelist_container, amount, tx_context::sender(ctx), false, ctx);
                 } else {
                         let wallets = vector::empty();
                         let limits = vector::empty();
                         vector::push_back(&mut wallets, tx_context::sender(ctx));
                         vector::push_back(&mut limits, current_round.limit_mint);
                         whitelist_module::add_whitelist(whitelist_container, wallets, limits, ctx);
-                        whitelist_module::update_whitelist(whitelist_container, 1, tx_context::sender(ctx), false, ctx);
+                        whitelist_module::update_whitelist(whitelist_container, amount, tx_context::sender(ctx), false, ctx);
 
                 };
                 // check valid time
@@ -673,16 +739,18 @@ module shoshinlaunchpad::launchpad_module {
                         project_id,
                         round_id: object::id(current_round),
                         price: current_round.price,
-                        buyer: tx_context::sender(ctx)
+                        buyer: tx_context::sender(ctx),
+                        amount
                 });
+                launchpad.total_supply = launchpad.total_supply - amount; 
+                launchpad.total_supply = launchpad.total_supply - amount; 
+                launchpad.total_minted = launchpad.total_minted + amount;
+                launchpad.total_pool = launchpad.total_pool + current_round.price * amount;
+                current_round.total_supply = current_round.total_supply - amount;
+                current_round.total_minted = current_round.total_minted + amount;
                 // push coin to pool
-                let price_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), current_round.price);
+                let price_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), current_round.price * amount);
                 coin::join(&mut launchpad.pool, coin::from_balance(price_balance, ctx));
-                launchpad.total_supply = launchpad.total_supply - 1; 
-                launchpad.total_minted = launchpad.total_minted + 1;
-                launchpad.total_pool = launchpad.total_pool + current_round.price;
-                current_round.total_supply = current_round.total_supply - 1;
-                current_round.total_minted = current_round.total_minted + 1;
                 transfer::public_transfer(coin, tx_context::sender(ctx)); 
         }
 
@@ -734,8 +802,7 @@ module shoshinlaunchpad::launchpad_module {
         ) {
                 // check admin
                 let sender = tx_context::sender(ctx);
-                let admin_address = admin.address;
-                assert!(admin_address == sender,EAdminOnly);
+                assert!(isAdmin(admin, sender) == true, EAdminOnly);
                 let round_uid = object::new(ctx);
                 let round_id = object::uid_to_inner(&round_uid);
                 // create whitelist for round
@@ -793,8 +860,7 @@ module shoshinlaunchpad::launchpad_module {
         public entry fun make_close_round(launchpad: &mut Launchpad,admin: &mut Admin, round_id: ID, ctx: &mut TxContext ) {
                 // check admin
                 let sender = tx_context::sender(ctx);
-                let admin_address = admin.address;
-                assert!(admin_address == sender,EAdminOnly);
+                assert!(isAdmin(admin, sender) == true, EAdminOnly);
 
                 let project_id = object::id(launchpad);
 
@@ -826,8 +892,7 @@ module shoshinlaunchpad::launchpad_module {
         public entry fun add_whitelist (whitelist_container: &mut WhitelistContainer,admin: &mut Admin, wallets: vector<address>, limits : vector<u64>, ctx: &mut TxContext) {
                 // check admin
                 let sender = tx_context::sender(ctx);
-                let admin_address = admin.address;
-                assert!(admin_address == sender,EAdminOnly);
+                assert!(isAdmin(admin, sender) == true, EAdminOnly);
                 whitelist_module::add_whitelist(whitelist_container, wallets, limits, ctx);
         }
 
@@ -849,8 +914,8 @@ module shoshinlaunchpad::launchpad_module {
         public entry fun exist<T: store + key>(admin: &mut Admin, launchpad: &mut Launchpad, amount: u64, receive: address,ctx: &mut TxContext) {
                 // check admin
                 let sender = tx_context::sender(ctx);
-                let admin_address = admin.address;
-                assert!(admin_address == sender,EAdminOnly);
+                assert!(isAdmin(admin, sender) == true, EAdminOnly);
+
                 assert!(launchpad.is_deposit == true, ENotHavePermistion);
                 // check total supply
                 assert!(launchpad.total_supply > 0, ENotEnoughNft);
