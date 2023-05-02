@@ -512,7 +512,15 @@ module shoshinmarketplace::marketplace_module {
         expried_at: u64,
         container_id: ID,
     }
-    public entry fun make_offer_with_nft<T: store + key>(marketplace:&mut Marketplace, container: &mut Container, marketplace_id: ID, nft_id: ID, offer_price: u64, coin: Coin<SUI>, end_time: u64, ctx:&mut TxContext){
+    public entry fun make_offer_with_nft<T: store + key>(
+        marketplace:&mut Marketplace, 
+        container: &mut Container, 
+        marketplace_id: ID, nft_id: ID, 
+        offer_price: u64, 
+        coin: Coin<SUI>, 
+        end_time: u64, 
+        ctx:&mut TxContext )
+        {
         /*check current container on param is stable to store the offer*/
         let need_to_create_new_container = check_need_create_new_container(marketplace, container);
         if(need_to_create_new_container == true){
@@ -728,7 +736,7 @@ module shoshinmarketplace::marketplace_module {
         object::delete(id)
     }
 
-    struct OwnerAcceptOfferWithListedNftEvent has copy, drop {
+    struct OwnerAcceptOffer has copy, drop {
         nft_id: ID,
         offer_price: u64,
         seller: address,
@@ -765,7 +773,7 @@ module shoshinmarketplace::marketplace_module {
         let fee_for_seller:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), seller_commission);
         
 
-        event::emit(OwnerAcceptOfferWithListedNftEvent{
+        event::emit(OwnerAcceptOffer{
             nft_id: nft_id,
             offer_price: offer_price,
             seller: seller,
@@ -820,7 +828,7 @@ module shoshinmarketplace::marketplace_module {
         let fee_for_seller:Balance<SUI> = balance::split(coin::balance_mut(&mut paid), seller_commission);
         
 
-        event::emit(OwnerAcceptOfferWithListedNftEvent{
+        event::emit(OwnerAcceptOffer{
             nft_id: nft_id,
             offer_price: offer_price,
             seller: seller,
@@ -844,14 +852,16 @@ module shoshinmarketplace::marketplace_module {
     }
 
     /**ACCEPT OFFER WITH NON-LISTED NFT*/
-    struct OwnerAcceptOfferWithNonListedNftEvent has copy, drop {
-        nft_id: ID,
-        offer_price: u64,
-        seller: address,
-        new_nft_owner: address
-    }
-    public entry fun make_accept_offer_with_non_listed_nft<T: key + store>(marketplace:&mut Marketplace, admin:&mut Admin, collection_fees:&mut FeeContainer, container_has_offer: &mut Container, nft_id: ID, offer_id: ID, clock: &Clock, nft: T, ctx: &mut TxContext){
-        
+    public entry fun make_accept_offer_with_non_listed_nft<T: key + store>(
+        marketplace:&mut Marketplace, 
+        admin:&mut Admin, 
+        collection_fees:&mut FeeContainer, 
+        container_has_offer: &mut Container, 
+        nft_id: ID, 
+        offer_id: ID, 
+        clock: &Clock, 
+        nft: T, 
+        ctx: &mut TxContext){
         //seller commision
         let seller_commission:u64 = 0;
         let current_time = clock::timestamp_ms(clock);
@@ -884,7 +894,7 @@ module shoshinmarketplace::marketplace_module {
         /*update status of containers*/
         container_has_offer.objects_in_list =  container_has_offer.objects_in_list - 1;  
             
-        event::emit(OwnerAcceptOfferWithNonListedNftEvent{
+        event::emit(OwnerAcceptOffer{
             nft_id: nft_id,
             offer_price: offer_price,
             seller: sender(ctx),
