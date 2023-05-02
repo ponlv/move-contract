@@ -1,13 +1,13 @@
 [package]
 name = "shoshinattribute"
 version = "0.0.1"
-published-at = "0xd9c13f064441b7d444afbba1c7d0b687f893b40bce879e9a0548aa4724680a69"
+published-at = "0x675c801adf7b30b607b9ed77cc6da40e0803539cf8aca0dcb1b58f368db027a4"
 
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir="crates/sui-framework/packages/sui-framework/", rev = "devnet" }
 
 [addresses]
-shoshinattribute =  "0xd9c13f064441b7d444afbba1c7d0b687f893b40bce879e9a0548aa4724680a69"
+shoshinattribute =  "0x675c801adf7b30b607b9ed77cc6da40e0803539cf8aca0dcb1b58f368db027a4"
 sui =  "0x2"
 

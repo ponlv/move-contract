@@ -30,6 +30,7 @@ module shoshinlaunchpad::launchpad_module {
         const EBuyFail:u64 = 27;
         const ERoundNotPublic:u64 = 28;
         const EIsRoundPublic:u64 = 29;
+        const ERoundClosed:u64 = 30;
 
         const MAXIMUM_OBJECT_SIZE:u64 = 50;
 
@@ -446,6 +447,8 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(current_round.total_supply > 0, ENotEnoughNft);
                 // check public round
                 assert!(current_round.limit_mint == 0, EIsRoundPublic);
+                // check close
+                assert!(current_round.status == true, ERoundClosed);
                 // check can buy ?
                 whitelist_module::update_whitelist(whitelist_container, 1, tx_context::sender(ctx), current_round.is_public, ctx);
                 // check valid time
@@ -522,6 +525,8 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(current_round.total_supply > 0, ENotEnoughNft);
                 // check public round
                 assert!(current_round.limit_mint != 0, ERoundNotPublic);
+                // check close
+                assert!(current_round.status == true, ERoundClosed);
                 // check can buy ?
                 let isExistedInWhitelist = whitelist_module::existed(whitelist_container, tx_context::sender(ctx));
                 if(isExistedInWhitelist == true) {
@@ -591,6 +596,8 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(current_round.total_supply > 0, ENotEnoughNft);
                 // check public round
                 assert!(current_round.limit_mint == 0, EIsRoundPublic);
+                // check close
+                assert!(current_round.status == true, ERoundClosed);
                 // check can buy ?
                 whitelist_module::update_whitelist(whitelist_container, 1, tx_context::sender(ctx), current_round.is_public, ctx);
                 // check valid time
@@ -640,6 +647,8 @@ module shoshinlaunchpad::launchpad_module {
                 let current_round = ofield::borrow_mut<ID,Round>(&mut launchpad.id, round_id);
                 // limit by round
                 assert!(current_round.total_supply > 0, ENotEnoughNft);
+                // check close
+                assert!(current_round.status == true, ERoundClosed);
                 // check public round
                 assert!(current_round.limit_mint != 0, ERoundNotPublic);
                 // check can buy ?
