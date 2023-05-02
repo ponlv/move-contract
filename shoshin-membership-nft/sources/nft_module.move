@@ -86,6 +86,8 @@ module shoshinnft::nft_module{
     struct Nft has key,store {
         id: UID,
         round_id: ID,
+        name: String,
+        index: u64,
     }
 
     /// One-Time-Witness for the module.
@@ -126,8 +128,8 @@ module shoshinnft::nft_module{
         ];
 
         let values = vector[
-            utf8(b"Shoshin NFT"),
-            utf8(b"Shoshin NFT"),
+            utf8(b"{name} #{index}"),
+            utf8(b"Shoshin NFT Membership"),
             utf8(b"https://storage.googleapis.com/shoshinsquare/s0-banner.webp"),
             utf8(b"https://shoshinsquare.com/"),
             utf8(b"https://storage.googleapis.com/shoshinsquare/s0-banner.webp"),
@@ -152,6 +154,7 @@ module shoshinnft::nft_module{
         // Admin,Round objects will be saved on global storage
         // after the smart contract deployment we will get the ID to access it
         transfer::share_object(admin);
+
     }
     
 
@@ -215,7 +218,7 @@ module shoshinnft::nft_module{
         transfer::share_object(container);
     }
 
-    public entry fun add_whitelist (admin: &mut Admin, whitelist_container: &mut WhitelistContainer, wallets: vector<address>, limits : vector<u64>, ctx: &mut TxContext) {
+    public entry fun add_whitelist(admin: &mut Admin, whitelist_container: &mut WhitelistContainer, wallets: vector<address>, limits : vector<u64>, ctx: &mut TxContext) {
         let sender = sender(ctx);
         // check admin
         assert!(isAdmin(admin, sender) == true, EAdminOnly);
@@ -342,11 +345,17 @@ module shoshinnft::nft_module{
 
         let nft_ids = vector::empty();
 
+        let current_index = container.total_minted;
+
         while(nft_index < amount) {
+            let name = utf8(b"Shoshin NFT");
             let new_nft = Nft{
                 id: object::new(ctx),
                 round_id: object::id(current_round),
+                name,
+                index: current_index,
             };
+            current_index = current_index + 1;
             vector::push_back(&mut nft_ids, object::id(&new_nft));
             transfer::public_transfer(new_nft,sender);
             nft_index = nft_index + 1;
