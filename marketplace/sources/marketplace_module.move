@@ -179,76 +179,6 @@ module shoshinmarketplace::marketplace_module {
         return new_container
     }
 
-    /* check if current container is stable for deposit the object.
-    */
-    fun check_need_create_new_container(marketplace:&mut Marketplace, container:&mut Container):bool {
-
-        let market_current_container_list = &mut marketplace.containers_list;
-        let current_container_list_length = vector::length(market_current_container_list);
-        if( current_container_list_length <= 0 ){
-           return true
-        }
-        else {
-        let checking;
-        let current_latest_container = vector::borrow_mut(market_current_container_list, current_container_list_length-1);
-        //check if this container is the lastest container in marketplace
-        if(current_latest_container.container_id == object::uid_to_inner(&container.id)){
-            if(container.objects_in_list >=  marketplace.container_maximum_size){
-            current_latest_container.can_deposit = false;
-            checking = true;
-            } else { 
-            current_latest_container.can_deposit = true;
-            checking = false }
-        } 
-        else {
-            if(container.objects_in_list >= marketplace.container_maximum_size){
-            checking = true;
-            } else { 
-            checking = false ;
-            }
-        };
-        //TO-DO: check if any container in list can deposit
-        //let index = 0;
-        // while(index < current_container_list_length){
-        //     let container_in_list = vector::borrow_mut(market_current_container_list,index);
-        //     if(container_in_list.can_deposit == true){
-        //         return false
-        //     }
-        // };
-        return checking
-        }
-    }
-
-    //UPDATE: container is `NOT` stable
-    fun update_status_full_of_container_size(marketplace:&mut Marketplace, container:&mut Container):bool {
-        let market_current_containers_list =&mut marketplace.containers_list;
-        let length = vector::length(market_current_containers_list);
-        let index = 0;
-        while(index < length){
-        let container_in_list = vector::borrow_mut(market_current_containers_list, index);
-        if(container_in_list.container_id == object::uid_to_inner(&container.id)){
-            container_in_list.can_deposit = false;
-        };
-        index = index + 1;
-        };
-        return true
-    }
-
-    //UPDATE: container is stable
-    fun update_status_stable_of_container_size(marketplace:&mut Marketplace, container:&mut Container):bool {
-        let market_current_containers_list =&mut marketplace.containers_list;
-        let length = vector::length(market_current_containers_list);
-        let index = 0;
-        while(index < length){
-        let container_in_list = vector::borrow_mut(market_current_containers_list, index);
-        if(container_in_list.container_id == object::uid_to_inner(&container.id)){
-            container_in_list.can_deposit = true;
-        };
-        index = index + 1;
-        };
-        return true
-    }
-
     fun check_sender_is_in_enable_admin_addresses(admin:&mut Admin, ctx:&mut TxContext):bool {
         let index = 0;
         let enable_addresses = admin.enable_addresses;
@@ -463,7 +393,7 @@ module shoshinmarketplace::marketplace_module {
         assert!(seller ==&mut sender(ctx), EWrongSeller);
 
         //update price
-        price =&mut new_price;
+        *price = new_price;
         //emit event
         event::emit(EventUpdateListingPrice{
             nft_id: nft_id,
@@ -601,97 +531,6 @@ module shoshinmarketplace::marketplace_module {
         transfer::public_transfer(coin,sender(ctx))   
     }
 
-    struct UpdateOfferNftEvent has copy, drop {
-        offer_id: ID,
-        nft_id: ID,
-        container_id: ID,
-        new_offer_price: u64,
-        offerer: address,
-    } 
-    /*UPDATE OFFER*/
-    public entry fun make_update_offer(marketplace:&mut Marketplace, container_has_offer:&mut Container, offer_id: ID, new_offer: u64, coin: Coin<SUI>, clock:&Clock, ctx:&mut TxContext){
-
-        let id_of_container = &mut container_has_offer.id;
-        let Offer<Coin<SUI>>{id,nft_id,container_id:_ , paid, offer_price, offerer,end_time} = ofield::remove(id_of_container,offer_id);
-        let current_time = clock::timestamp_ms(clock);
-
-        assert!(current_time < end_time,EListWasEnded);
-        assert!(offerer == sender(ctx),EOwnerOnly);
-        
-        let new_offer_end_time = end_time;
-
-        //delete old offer
-        container_has_offer.objects_in_list = container_has_offer.objects_in_list - 1;
-        //tranfer old coin to offerer
-        transfer::public_transfer(paid, offerer);
-        object::delete(id);
-
-        /*Create new offer*/
-        /*check current container on param is stable to store the offer*/
-        let need_to_create_new_container = check_need_create_new_container(marketplace,container_has_offer);
-
-        if(need_to_create_new_container){
-            let _ = update_status_full_of_container_size(marketplace, container_has_offer);
-            let new_container = create_new_container(marketplace,ctx);
-            //create new offer
-            let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), new_offer);
-            let offer = Offer<Coin<SUI>>{
-                id: object::new(ctx),
-                nft_id: nft_id,
-                container_id: object::uid_to_inner(&new_container.id),
-                paid: coin::from_balance(offer_balance,ctx),
-                offer_price: new_offer,
-                offerer: tx_context::sender(ctx),
-                end_time: new_offer_end_time
-            };
-
-            //emit event
-            event::emit(UpdateOfferNftEvent{
-                offer_id: object::id(&offer),
-                nft_id: nft_id,
-                container_id: object::uid_to_inner(&new_container.id),
-                new_offer_price: new_offer,
-                offerer: tx_context::sender(ctx)
-            });
-            //add offer to the newest container in marketplace
-            new_container.objects_in_list = new_container.objects_in_list + 1;
-            ofield::add(&mut new_container.id, object::id(&offer), offer);
-
-            //emit event for create container
-            event::emit(EventCreateContainer{
-            container_id: object::id(&new_container)
-            });
-            //public container on chain
-            transfer::share_object(new_container);
-        }
-        else{
-            //create new offer
-            let offer_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), new_offer);
-            let offer = Offer<Coin<SUI>>{
-                id: object::new(ctx),
-                nft_id: nft_id,
-                container_id: object::uid_to_inner(&container_has_offer.id),
-                paid: coin::from_balance(offer_balance,ctx),
-                offer_price: new_offer,
-                offerer: tx_context::sender(ctx),
-                end_time: new_offer_end_time,
-            };
-
-            //emit event
-            event::emit(UpdateOfferNftEvent{
-                offer_id: object::id(&offer),
-                nft_id: nft_id,
-                container_id: object::uid_to_inner(&container_has_offer.id),
-                new_offer_price: new_offer,
-                offerer: tx_context::sender(ctx)
-            });
-            //add offer to the newest container in marketplace
-            container_has_offer.objects_in_list = container_has_offer.objects_in_list + 1;
-            ofield::add(&mut container_has_offer.id, object::id(&offer), offer);
-        };
-        transfer::public_transfer(coin,sender(ctx))
-
-    }
 
     struct DeleteOfferEvent has copy, drop {
         offer_id: ID,
