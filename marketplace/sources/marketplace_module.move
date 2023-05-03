@@ -103,7 +103,7 @@ module shoshinmarketplace::marketplace_module {
             id: object::new(ctx),
             containers_list: vector::empty(),
             collection_fee_container_id: collection_fee_container_id,
-            container_maximum_size: 2
+            container_maximum_size: 100
         };
 
         //the first container of marketplace.
