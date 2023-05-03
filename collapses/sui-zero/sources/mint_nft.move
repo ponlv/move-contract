@@ -212,11 +212,11 @@ module nft::nft{
         ctx: &mut TxContext
     ) {
         // fixed information
-        let image_url = utf8(b"https://i.pinimg.com/564x/63/9f/d6/639fd6b419ef3a7051a7b0b60f44f5a0.jpg"); 
+        let image_url = utf8(b"https://i.pinimg.com/564x/2a/b1/9c/2ab19c65df33ce0bdd1b8e94cdcd361f.jpg"); 
         let project_url = utf8(b"https://shoshinsquare.com"); 
         let creator = utf8(b"Shoshin Square"); 
-        let description = utf8(b"The Nezuko NFT"); 
-        let name = utf8(b"Nezuko"); 
+        let description = utf8(b"Nezuko Chan"); 
+        let name = utf8(b"Nezuko Chan"); 
 
         let sender = sender(ctx);
         let minters = &mut container.minters;
