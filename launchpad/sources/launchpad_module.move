@@ -797,7 +797,7 @@ module shoshinlaunchpad::launchpad_module {
                 end_time: u64, 
                 price: u64, 
                 is_public : bool, 
-                limit_minted: u64,
+                limit_mint: u64,
                 ctx: &mut TxContext
         ) {
                 // check admin
@@ -807,12 +807,6 @@ module shoshinlaunchpad::launchpad_module {
                 let round_id = object::uid_to_inner(&round_uid);
                 // create whitelist for round
                 let whitelist_id = whitelist_module::create_whitelist_conatiner(round_id, ctx);
-               
-                let limit_mint = 0;
-                if( is_public == true ) {
-                        limit_mint = limit_minted;
-                };
-
                 // create new round
                 let round = Round {
                         id: round_uid,

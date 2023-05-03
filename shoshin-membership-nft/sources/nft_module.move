@@ -13,8 +13,6 @@ module shoshinnft::nft_module{
     use sui::display;
     use sui::clock::{Self, Clock};
     use shoshinwhitelist::whitelist_module::{Self,WhitelistContainer};
-    use sui::dynamic_object_field as ofield;
-
 
    
    //constant
@@ -42,6 +40,8 @@ module shoshinnft::nft_module{
     /*--------ROUND-----------*/
     struct Container has key {
         id: UID,
+        rounds: vector<Round>,
+        description: String,
         total_minted: u64,
         total_supply: u64,
     }
@@ -202,6 +202,8 @@ module shoshinnft::nft_module{
 
         let container = Container{
             id: object::new(ctx),
+            rounds: vector::empty(),
+            description: string::utf8(b"This object use to save all the rounds"),
             total_minted: 0,
             total_supply: total_supply,
         };
@@ -229,12 +231,7 @@ module shoshinnft::nft_module{
         assert!(isAdmin(admin, sender) == true, EAdminOnly);
         whitelist_module::add_whitelist_with_bought(whitelist_container, wallets, limits, boughts, ctx);
     }
-
-    public entry fun delete_wallet_address_in_whitelist (admin: &mut Admin, whitelist_container: &mut WhitelistContainer, wallet: address, ctx: &mut TxContext) {
-        let sender = sender(ctx);
-        // check admin
-        assert!(isAdmin(admin, sender) == true, EAdminOnly);
-        
+    public entry fun delete_wallet_address_in_whitelist (whitelist_container: &mut WhitelistContainer, wallet: address, ctx: &mut TxContext) {
         whitelist_module::delete_wallet_in_whitelist(whitelist_container, wallet, ctx);
     }
 
@@ -257,7 +254,7 @@ module shoshinnft::nft_module{
         limit_minted: u64,
         ctx:&mut TxContext
     ) {
-        assert!(container.total_supply > container.total_minted && container.total_supply - container.total_minted  > total_supply, EMaximumNFTMinted);
+        assert!(container.total_supply > container.total_minted, EMaximumNFTMinted);
         let sender = sender(ctx);
         //admin only
         assert!(isAdmin(admin, sender) == true, EAdminOnly);
@@ -299,7 +296,9 @@ module shoshinnft::nft_module{
             whitelist: whitelist_id,
         });
        
-        ofield::add(&mut container.id, whitelist_id, round);            
+        //add new round into the round_vector on global storage
+        let current_rounds = &mut container.rounds;
+        vector::push_back(current_rounds, round);
     }
 
     public entry fun mint_nft(
@@ -316,9 +315,9 @@ module shoshinnft::nft_module{
         // get info
         let container_id = object::id(container);
         let sender = sender(ctx);
-        
-
-        let current_round = ofield::borrow_mut<ID,Round>(&mut container.id, whitelist_module::get_id(whitelist_container));
+        let rounds = &mut container.rounds;
+        let length = vector::length(rounds);
+        let current_round = vector::borrow_mut(rounds, length - 1);
 
         // check time condition
         assert!(clock::timestamp_ms(clock) >= current_round.start_time, ERoundDidNotStartedYet);
