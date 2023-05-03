@@ -589,7 +589,8 @@ module shoshinmarketplace::marketplace_module {
         nft_id: ID,
         offer_price: u64,
         seller: address,
-        new_nft_owner: address
+        new_nft_owner: address,
+        offer_id: ID
     }
     public entry fun make_accept_offer_with_listed_nft_in_different_container<T: store + key>(marketplace:&mut Marketplace, admin:&mut Admin, collection_fees:&mut FeeContainer, container_has_nft: &mut Container, container_has_offer: &mut Container, nft_id: ID, offer_id: ID, clock: &Clock, ctx: &mut TxContext){
         
@@ -626,7 +627,8 @@ module shoshinmarketplace::marketplace_module {
             nft_id: nft_id,
             offer_price: offer_price,
             seller: seller,
-            new_nft_owner: offerer
+            new_nft_owner: offerer,
+            offer_id: offer_id
         });
 
         /*update status of containers*/
@@ -687,7 +689,8 @@ module shoshinmarketplace::marketplace_module {
             nft_id: nft_id,
             offer_price: offer_price,
             seller: seller,
-            new_nft_owner: offerer
+            new_nft_owner: offerer,
+            offer_id: offer_id
         });
 
         /*update status of containers*/
@@ -748,7 +751,8 @@ module shoshinmarketplace::marketplace_module {
             nft_id: nft_id,
             offer_price: offer_price,
             seller: sender(ctx),
-            new_nft_owner: offerer
+            new_nft_owner: offerer,
+            offer_id: offer_id
         });
         /*
         Transfer fee to market admin, nft owner, collection creator
