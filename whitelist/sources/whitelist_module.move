@@ -441,7 +441,7 @@ module shoshinwhitelist::whitelist_module{
                         };
                         if (is_stop == true) {
                                 let current_element = vector::remove(&mut whitelist_element.whitelist_elements, focus_update_index);
-                                current_element.bought = current_element.bought + 1;
+                                current_element.bought = current_element.bought + next_value;
                                 vector::push_back(&mut whitelist_element.whitelist_elements, current_element);
                                 break
                         };
@@ -450,6 +450,10 @@ module shoshinwhitelist::whitelist_module{
                 };
 
 
+        }
+
+        public fun get_id(whitelist_container: &mut WhitelistContainer) :ID {
+               object::id(whitelist_container)
         }
 
 
