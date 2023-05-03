@@ -8,7 +8,7 @@ module shoshinwhitelist::whitelist_module{
 
 
 
-        const MAXIMUM_OBJECT_SIZE:u64 = 1000;
+        const MAXIMUM_OBJECT_SIZE:u64 = 100;
 
         const EAdminOnly:u64 = 0;
         const EWhitelistWrongLimit:u64 = 1;

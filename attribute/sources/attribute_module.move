@@ -13,7 +13,7 @@ module shoshinattribute::attribute_module{
         
 
         const DEFAULT_SERVICE_FEE:u64 = 25; // fee x 10
-        const MAXIMUM_OBJECT_SIZE:u64 = 3000;
+        const MAXIMUM_OBJECT_SIZE:u64 = 100;
 
 
 
