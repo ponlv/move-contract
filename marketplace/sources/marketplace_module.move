@@ -32,6 +32,7 @@ module shoshinmarketplace::marketplace_module {
     const ENotOwner:u64 = 5003;
     const EMaximumSize:u64 = 5004;
     const EWasOwned:u64 = 5005;
+    const ENotAvailable:u64 = 5006;
 
 
     struct Admin has key {
@@ -46,7 +47,8 @@ module shoshinmarketplace::marketplace_module {
         id: UID,
         containers_list : vector<Container_Status>,
         container_maximum_size: u64,
-        collection_fee_container_id: ID
+        collection_fee_container_id: ID,
+        is_enable: bool,
     }
 
     struct Container_Status has store, drop {
@@ -103,7 +105,8 @@ module shoshinmarketplace::marketplace_module {
             id: object::new(ctx),
             containers_list: vector::empty(),
             collection_fee_container_id: collection_fee_container_id,
-            container_maximum_size: 100
+            container_maximum_size: 100,
+            is_enable: false
         };
 
         //the first container of marketplace.
@@ -122,6 +125,13 @@ module shoshinmarketplace::marketplace_module {
         transfer::share_object(container);
         transfer::share_object(admin);
         transfer::share_object(marketplace)
+    }
+
+    public entry fun change_marketplace_status(admin: &mut Admin, marketplace: &mut Marketplace, status: bool, ctx: &mut TxContext) {
+        let sender = sender(ctx);
+        //admin only
+        assert!(isAdmin(admin, sender) == true, EAdminOnly);
+        marketplace.is_enable = status;
     }
 
     public entry fun withdraw(admin: &mut Admin, receive_address: address, ctx: &mut TxContext) {
@@ -164,7 +174,7 @@ module shoshinmarketplace::marketplace_module {
         container_id: ID
     }
     fun create_new_container(marketplace:&mut Marketplace, ctx:&mut TxContext):Container {
-        
+        assert!(marketplace.is_enable == true, ENotAvailable);
         let new_container = Container{
             id: object::new(ctx),
             objects_in_list: 1
@@ -224,6 +234,7 @@ module shoshinmarketplace::marketplace_module {
         seller: address,
     }
     public entry fun make_list_nft<T: key + store>(marketplace:&mut Marketplace, container:&mut Container, marketplace_package_id: ID, item: T, price: u64, ctx:&mut TxContext) {
+         assert!(marketplace.is_enable == true, ENotAvailable);
         //check max size for container on param 
         
         if(container.objects_in_list >= marketplace.container_maximum_size){
@@ -295,6 +306,7 @@ module shoshinmarketplace::marketplace_module {
     }
 
     public entry fun make_buy_nft<T: key + store >(marketplace:&mut Marketplace, admin: &mut Admin, container:&mut Container, nft_id: ID, coin: Coin<SUI>, collection_fees:&mut FeeContainer, ctx:&mut TxContext){
+        assert!(marketplace.is_enable == true, ENotAvailable);
         //comission
         let seller_commission:u64;
         
@@ -351,6 +363,7 @@ module shoshinmarketplace::marketplace_module {
         seller : address
     }
     public entry fun make_delist_nft<T: key + store >(marketplace: &mut Marketplace, container_has_nft:&mut Container, nft_id: ID, ctx:&mut TxContext){
+        assert!(marketplace.is_enable == true, ENotAvailable);
         //get listing nft in the container
         let List<T> {id, container_id:_, seller, item, price:_} = ofield::remove(&mut container_has_nft.id, nft_id);
 
@@ -455,6 +468,7 @@ module shoshinmarketplace::marketplace_module {
     }
     
     public entry fun make_offer_with_nft<T: store + key>(marketplace:&mut Marketplace, container: &mut Container, marketplace_id: ID, nft_id: ID, offer_price: u64, coin: Coin<SUI>, end_time: u64, ctx:&mut TxContext){
+        assert!(marketplace.is_enable == true, ENotAvailable);
         /*check current container on param is stable to store the offer*/
         if(container.objects_in_list >= marketplace.container_maximum_size){
             //update status of container.
@@ -536,7 +550,7 @@ module shoshinmarketplace::marketplace_module {
     }
     /*make delete offer*/
     public entry fun make_user_delete_offer(marketplace:&mut Marketplace, container_has_offer: &mut Container, nft_id: ID, id_offer: ID, ctx: &mut TxContext){
-        
+        assert!(marketplace.is_enable == true, ENotAvailable);
         let container_id =&mut container_has_offer.id;
         let Offer<Coin<SUI>>{id, nft_id:_, container_id:_ , paid, offer_price: _, offerer, end_time: _} = ofield::remove(container_id,id_offer);
         assert!(offerer == sender(ctx),EOwnerOnly);
@@ -563,7 +577,7 @@ module shoshinmarketplace::marketplace_module {
     }
     /*admin return offer*/
     public entry fun make_admin_return_offer(marketplace: &mut Marketplace, container_has_offer: &mut Container, admin:&mut Admin,nft_id: ID, id_offer: ID, clock: &Clock, ctx: &mut TxContext){
-        
+        assert!(marketplace.is_enable == true, ENotAvailable);
         let container_id =&mut container_has_offer.id;
         let current_time = clock::timestamp_ms(clock);
         let Offer<Coin<SUI>>{id, nft_id:_, container_id:_ , paid, offer_price: _, offerer, end_time} = ofield::remove(container_id,id_offer);
@@ -593,7 +607,7 @@ module shoshinmarketplace::marketplace_module {
         offer_id: ID
     }
     public entry fun make_accept_offer_with_listed_nft_in_different_container<T: store + key>(marketplace:&mut Marketplace, admin:&mut Admin, collection_fees:&mut FeeContainer, container_has_nft: &mut Container, container_has_offer: &mut Container, nft_id: ID, offer_id: ID, clock: &Clock, ctx: &mut TxContext){
-        
+        assert!(marketplace.is_enable == true, ENotAvailable);
         //seller commision
         let seller_commission:u64;
         let current_time = clock::timestamp_ms(clock);
@@ -656,6 +670,7 @@ module shoshinmarketplace::marketplace_module {
     }
 
     public entry fun make_accept_offer_with_listed_nft_in_same_container<T: store + key>(marketplace:&mut Marketplace, admin:&mut Admin, collection_fees:&mut FeeContainer, container: &mut Container, nft_id: ID, offer_id: ID, clock: &Clock, ctx: &mut TxContext){
+        assert!(marketplace.is_enable == true, ENotAvailable);
         //seller commision
         let seller_commission:u64;
         let current_time = clock::timestamp_ms(clock);
@@ -713,7 +728,7 @@ module shoshinmarketplace::marketplace_module {
     }
 
     public entry fun make_accept_offer_with_non_listed_nft<T: key + store>(marketplace:&mut Marketplace, admin:&mut Admin, collection_fees:&mut FeeContainer, container_has_offer: &mut Container, offer_id: ID, clock: &Clock, nft: T, ctx: &mut TxContext){
-        
+        assert!(marketplace.is_enable == true, ENotAvailable);
         //seller commision
         let seller_commission:u64;
         let current_time = clock::timestamp_ms(clock);
@@ -846,6 +861,7 @@ module shoshinmarketplace::marketplace_module {
         end_time: u64,
         ctx:&mut TxContext
     ) {
+        assert!(auction.is_enable == true, ENotAvailable);
         // check max size
         if (container.objects_in_list == auction.container_maximum_size ) {
             // create new container
@@ -996,6 +1012,7 @@ module shoshinmarketplace::marketplace_module {
         nft_id: ID,
         ctx: &mut TxContext
     ) {
+        assert!(auction.is_enable == true, ENotAvailable);
         // get listed nft
         let AuctionItem<T> { id, seller, current_offerer, container_id : _, item, start_price: _, current_price, paid, start_time: _, end_time: _} = ofield::remove<ID, AuctionItem<T>>(&mut container.id, nft_id);
         assert!(seller == tx_context::sender(ctx) || check_sender_is_in_enable_admin_addresses(admin, ctx) == true, ENotOwner);
@@ -1040,6 +1057,7 @@ module shoshinmarketplace::marketplace_module {
         nft_id: ID,
         ctx: &mut TxContext
     ) {
+        assert!(auction.is_enable == true, ENotAvailable);
         // get listed nft
         let AuctionItem<T> { id, seller, current_offerer, container_id : _, item, start_price: _, current_price, paid, start_time: _, end_time: _} = ofield::remove<ID, AuctionItem<T>>(&mut container.id, nft_id);
         assert!(seller == tx_context::sender(ctx) || check_sender_is_in_enable_admin_addresses(admin, ctx) == true, ENotOwner);
