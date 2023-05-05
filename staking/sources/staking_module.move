@@ -388,6 +388,7 @@ module shoshinmarketplace::marketplace_module {
         let current_time = clock::timestamp_ms(clock);
 
         *duration = current_time + pool.duration;
+        *is_unstake = true;
 
         //emit event
         event::emit(UnStakeEvent{
@@ -425,8 +426,7 @@ module shoshinmarketplace::marketplace_module {
         let sender = sender(ctx);
         assert!(sender == owner || isAdmin(admin, sender) == true, ENotHavePermission);
         assert!(is_unstake == true, ENotUnStake);
-        let current_time = clock::timestamp_ms(clock);
-        assert!(current_time > duration, EStakingRunning);
+        assert!(clock::timestamp_ms(clock) > duration, EStakingRunning);
 
         //emit event
         event::emit(ClaimEvent{
