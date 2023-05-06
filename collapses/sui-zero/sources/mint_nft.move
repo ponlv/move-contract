@@ -212,11 +212,11 @@ module nft::nft{
         ctx: &mut TxContext
     ) {
         // fixed information
-        let image_url = utf8(b"https://shoshinsquare.infura-ipfs.io/ipfs/QmdqmDALRQLd4HwTfFgvbNYDj8oSizQ99LxUbs5gXmgc45"); 
+        let image_url = utf8(b"https://i.pinimg.com/564x/2a/b1/9c/2ab19c65df33ce0bdd1b8e94cdcd361f.jpg"); 
         let project_url = utf8(b"https://shoshinsquare.com"); 
         let creator = utf8(b"Shoshin Square"); 
-        let description = utf8(b"Shoshin Zero NFT collection is a free-mint NFT certificate powered by Shoshin Square for the Shoshin's member to celerate the SUI mainnet."); 
-        let name = utf8(b"Shoshin Zero"); 
+        let description = utf8(b"Nezuko Chan"); 
+        let name = utf8(b"Nezuko Chan"); 
 
         let sender = sender(ctx);
         let minters = &mut container.minters;

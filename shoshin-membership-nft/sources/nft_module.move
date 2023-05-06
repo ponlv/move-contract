@@ -130,11 +130,11 @@ module shoshinnft::nft_module{
         let values = vector[
             utf8(b"{name} #{index}"),
             utf8(b"Shoshin NFT Membership"),
-            utf8(b"https://shoshinsquare.infura-ipfs.io/ipfs/Qme9tCniCjJQk7BpNh63H79j7NDYZt2HsFLR9KUL1ZUtQV"),
-            utf8(b"https://shoshinsquare.com"),
-            utf8(b"https://shoshinsquare.infura-ipfs.io/ipfs/Qme9tCniCjJQk7BpNh63H79j7NDYZt2HsFLR9KUL1ZUtQV"),
-            utf8(b"https://shoshinsquare.infura-ipfs.io/ipfs/Qme9tCniCjJQk7BpNh63H79j7NDYZt2HsFLR9KUL1ZUtQV"),
-            utf8(b"Shoshin Square")
+            utf8(b"https://storage.googleapis.com/shoshinsquare/s0-banner.webp"),
+            utf8(b"https://shoshinsquare.com/"),
+            utf8(b"https://storage.googleapis.com/shoshinsquare/s0-banner.webp"),
+            utf8(b"https://storage.googleapis.com/shoshinsquare/s0-banner.webp"),
+            utf8(b"Shoshin square")
         ];
 
         // Claim the `Publisher` for the package!
