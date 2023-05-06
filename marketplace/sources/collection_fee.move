@@ -11,7 +11,7 @@ module shoshinmarketplace::collection_fee_module {
     const EFeeWrongLimit:u64 = 1;
     const ENotExisted:u64 = 2;
         
-    const DEFAULT_SERVICE_FEE:u64 = 25;
+    const DEFAULT_SERVICE_FEE:u64 = 2500;
     const MAXIMUM_OBJECT_SIZE:u64 = 1000;
 
     struct FeeElement has store, drop, copy {
@@ -342,4 +342,4 @@ module shoshinmarketplace::collection_fee_module {
     public fun get_service_fee(fee_container: &mut FeeContainer, amount: u64):u64 {
         fee_container.default_service_fee * amount / (100 * 1000)
     }
-}
+}2,5
