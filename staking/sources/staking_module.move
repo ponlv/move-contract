@@ -1,4 +1,4 @@
-module shoshinmarketplace::marketplace_module {
+module shoshinstaking::staking_module {
     use sui::object::{Self,ID,UID};
     use sui::tx_context::{Self, TxContext,sender};
     use std::vector;
@@ -39,6 +39,7 @@ module shoshinmarketplace::marketplace_module {
         start_time: u64,
         end_time: u64,
         duration: u64,
+        item_per_ticket: u64
     }
 
 
@@ -54,7 +55,7 @@ module shoshinmarketplace::marketplace_module {
         owner: address,
         item: T, 
         duration: u64,
-        is_unstake: bool
+        is_unstake: bool,
     }
     
 
@@ -187,6 +188,7 @@ module shoshinmarketplace::marketplace_module {
         start_time: u64,
         end_time: u64,
         duration: u64,
+        item_per_ticket: u64
     }
 
     /***
@@ -197,7 +199,7 @@ module shoshinmarketplace::marketplace_module {
     * @param status is new status
     * 
     */
-    public entry fun create_new_pool<T: store + key>(admin:&mut Admin, start_time: u64, end_time: u64, duration: u64, ctx:&mut TxContext) {
+    public entry fun create_new_pool<T: store + key>(admin:&mut Admin, item_per_ticket: u64, start_time: u64, end_time: u64, duration: u64, ctx:&mut TxContext) {
         let sender = sender(ctx);
         //admin only
         assert!(isAdmin(admin, sender) == true, EAdminOnly);
@@ -210,7 +212,8 @@ module shoshinmarketplace::marketplace_module {
                 is_enable: true,
                 start_time,
                 end_time,
-                duration
+                duration,
+                item_per_ticket,
         };
 
         let container = Container{
@@ -226,6 +229,7 @@ module shoshinmarketplace::marketplace_module {
                 start_time,
                 end_time,
                 duration,
+                item_per_ticket
         });
 
         vector::push_back(&mut pool.containers, Status {
@@ -263,7 +267,6 @@ module shoshinmarketplace::marketplace_module {
     * 
     */
     fun create_new_container<T: store + key>(pool:&mut Pool, ctx:&mut TxContext):Container {
-        assert!(pool.is_enable == true, ENotAvailable);
         let container = Container {
             id: object::new(ctx),
             collection: type_name::get<T>(),
@@ -281,6 +284,7 @@ module shoshinmarketplace::marketplace_module {
 
 
     struct StakeEvent has copy, drop {
+        pool: ID,
         nft_id: ID,
         container_id: ID,
     }
@@ -310,6 +314,7 @@ module shoshinmarketplace::marketplace_module {
                 //emit event
                 event::emit(StakeEvent{
                         nft_id,
+                        pool: object::id(pool),
                         container_id: object::id(&new_container),
                 });
 
@@ -334,6 +339,7 @@ module shoshinmarketplace::marketplace_module {
                 //emit event
                 event::emit(StakeEvent{
                         nft_id,
+                        pool: object::id(pool),
                         container_id: object::id(container),
                 });
 
@@ -359,6 +365,7 @@ module shoshinmarketplace::marketplace_module {
 
     struct UnStakeEvent has copy, drop {
         nft_id: ID,
+        pool: ID,
         nft_duration: u64
     }
 
@@ -374,6 +381,7 @@ module shoshinmarketplace::marketplace_module {
     * 
     */
    public entry fun make_unstake<T: store + key>(admin:&mut Admin, pool: &mut Pool, container: &mut Container, nft_id: ID, clock: &Clock, ctx: &mut TxContext) {
+        assert!(pool.is_enable == true, ENotAvailable);
         let StakingItem<T>{
                 id: _,
                 container_id: _,
@@ -392,8 +400,9 @@ module shoshinmarketplace::marketplace_module {
 
         //emit event
         event::emit(UnStakeEvent{
-                nft_id: object::id(item),
-                nft_duration: current_time + pool.duration 
+            nft_id: object::id(item),
+            pool: object::id(pool),
+            nft_duration: current_time + pool.duration 
         });
    }
 
@@ -402,6 +411,7 @@ module shoshinmarketplace::marketplace_module {
 
     struct ClaimEvent has copy, drop {
         nft_id: ID,
+        pool: ID,
     }
 
     /***
@@ -415,6 +425,7 @@ module shoshinmarketplace::marketplace_module {
     * 
     */
    public entry fun make_claim<T: store + key>(admin:&mut Admin, pool: &mut Pool, container: &mut Container, nft_id: ID, clock: &Clock, ctx: &mut TxContext) {
+        assert!(pool.is_enable == true, ENotAvailable);
         let StakingItem<T>{
                 id,
                 container_id: _,
@@ -431,6 +442,7 @@ module shoshinmarketplace::marketplace_module {
         //emit event
         event::emit(ClaimEvent{
             nft_id: object::id(&item),
+            pool: object::id(pool)
         });
 
 
@@ -460,6 +472,7 @@ module shoshinmarketplace::marketplace_module {
         //emit event
         event::emit(ClaimEvent{
             nft_id: object::id(&item),
+            pool: object::id(pool)
         });
 
         // update status
@@ -470,9 +483,6 @@ module shoshinmarketplace::marketplace_module {
         object::delete(id)
    }
 
-
-
-   
 
 
 
