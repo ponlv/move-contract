@@ -1,14 +1,15 @@
 [package]
 name = "shoshinlaunchpad"
 version = "0.0.0"
-published-at = "0x0"
+published-at = "0x646096ed9889163384e0fa7b859b8872a5772f3a899a9e371e6ee594df530249"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir="crates/sui-framework/packages/sui-framework/", rev = "devnet" }
 shoshinwhitelist = { local = "../whitelist" }
 
 [addresses]
-shoshinlaunchpad =  "0x0"
+shoshinlaunchpad =  "0x646096ed9889163384e0fa7b859b8872a5772f3a899a9e371e6ee594df530249"
 sui = "0x2"
 
 
+#0xc3c0213a8be87ea6c8b79bf4fdfb575d7710c5aa07f99ce7c2b6b9dfb3c90b18

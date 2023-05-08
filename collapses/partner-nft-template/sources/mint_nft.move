@@ -380,4 +380,9 @@ module nft::nft{
         assert!(sender == admin.address,EAdminOnly);
         attribute_module::push_attributes(attribute_container, attribute_keys, attribute_values, ctx);
     }
+
+
+    public entry fun burn(nft: Nft, ctx: &mut TxContext) {
+        object::delete(nft.id);
+    }
 }

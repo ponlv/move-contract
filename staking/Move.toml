@@ -1,13 +1,10 @@
 [package]
-name = "nft"
-version = "0.0.1"
-
+name = "shoshinstaking"
+version = "0.0.0"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir="crates/sui-framework/packages/sui-framework/", rev = "devnet" }
-shoshinlaunchpad = { local = "../../launchpad" }
 
 [addresses]
-nft =  "0x0"
+shoshinstaking = "0x0"
 sui =  "0x2"
-
