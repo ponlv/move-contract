@@ -119,45 +119,12 @@ module shoshinlaunchpad::launchpad_module {
         * @param new_address
         * 
         */
-        public entry fun add_admin(admin:&mut Admin, new_enable_addresses: vector<address>, ctx:&mut TxContext){
+        public entry fun addAdmin(admin:&mut Admin, new_enable_addresses: vector<address>, ctx:&mut TxContext){
                 // check admin
                 let sender = tx_context::sender(ctx);
                 assert!(isAdmin(admin, sender) == true, EAdminOnly);
 
                 vector::append(&mut admin.enable_addresses, new_enable_addresses);
-        }
-
-
-                /***
-        * @dev change_admin_address
-        *
-        *
-        * @param admin is admin id
-        * @param new_address
-        * 
-        */
-        public entry fun remove_admin(admin:&mut Admin, delete_address: address, ctx:&mut TxContext){
-                // check admin
-                let sender = tx_context::sender(ctx);
-                assert!(isAdmin(admin, sender) == true, EAdminOnly);
-
-                let index = 0;
-                let admins = admin.enable_addresses;
-                let admins_length = vector::length(&admins);
-                let current_index = 0;
-                let is_existed = false;
-                while(index < admins_length) {
-                        if(*vector::borrow(&admins, index) == delete_address) {
-                                is_existed = true;
-                                current_index = index;
-                        };
-
-                        index = index + 1;
-                };
-
-                if(is_existed == true) {
-                        vector::remove(&mut admins, current_index);
-                };
         }
 
         struct CreateLaunchpadEvent has copy, drop {
@@ -494,14 +461,12 @@ module shoshinlaunchpad::launchpad_module {
                         let container_element = ofield::borrow_mut<ID, NFTContainer<T>>(&mut launchpad.id, *current_container_id);
                         // loop in nft array
                         let count_nfts = vector::length(&container_element.nfts);
-                        let current_index = 0;
-                        while(current_index < count_nfts) {
+                        while(count < amount && count_nfts > 0) {
                                 // send nft
                                 let current_nft = vector::pop_back(&mut container_element.nfts);
                                 vector::push_back(&mut bought_nfts, object::id(&current_nft));
                                 transfer::public_transfer(current_nft, tx_context::sender(ctx));
                                 count = count + 1;
-                                current_index= current_index + 1;
 
                                 if(count == amount) {
                                         is_stop = true;
@@ -590,14 +555,12 @@ module shoshinlaunchpad::launchpad_module {
                         let container_element = ofield::borrow_mut<ID, NFTContainer<T>>(&mut launchpad.id, *current_container_id);
                         // loop in nft array
                         let count_nfts = vector::length(&container_element.nfts);
-                        let current_index = 0;
-                        while(current_index < count_nfts) {
+                        while(count < amount && count_nfts > 0) {
                                 // send nft
                                 let current_nft = vector::pop_back(&mut container_element.nfts);
                                 vector::push_back(&mut bought_nfts, object::id(&current_nft));
                                 transfer::public_transfer(current_nft, tx_context::sender(ctx));
                                 count = count + 1;
-                                current_index = current_index + 1;
 
                                 if(count == amount) {
                                         is_stop = true;
@@ -949,10 +912,7 @@ module shoshinlaunchpad::launchpad_module {
         * 
         */
 
-        public entry fun delete_wallet_address_in_whitelist (admin: &mut Admin, whitelist_container: &mut WhitelistContainer, wallet: address, ctx: &mut TxContext) {
-                // check admin
-                let sender = tx_context::sender(ctx);
-                assert!(isAdmin(admin, sender) == true, EAdminOnly);
+        public entry fun delete_wallet_address_in_whitelist (whitelist_container: &mut WhitelistContainer, wallet: address, ctx: &mut TxContext) {
                 whitelist_module::delete_wallet_in_whitelist(whitelist_container, wallet, ctx);
         }
         /*** -------------------------------------------------Whitelist------------------------------------------------------------- */
