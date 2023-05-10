@@ -214,50 +214,35 @@ module shoshinwhitelist::whitelist_module{
                 let loop_index = 0;
                 // loop wallet array
                 while(loop_index < wallets_lenght) {
-                        // get limit and wallet
-                        let current_wallet = vector::borrow<address>(&wallets, loop_index);
-                        let current_limit = vector::borrow<u64>(&limits, loop_index);
-                        // check existed
-                        let existed = existed(whitelist_container, *current_wallet);
-                        if (existed == false) {
-                                // get focus dynamic whitelist object id
-                                let element_ids = whitelist_container.elements;
-                                let element_length = vector::length<ID>(&element_ids);
-                                let focus_whitelist_object_id = vector::borrow<ID>(&element_ids, element_length - 1);
-                                // get whitelist element
-                                let whitelist_element = ofield::borrow_mut<ID, Whitelist>(&mut whitelist_container.id, *focus_whitelist_object_id);
+                        // get whitelist element
+                        let whitelist_element = ofield::borrow_mut<ID, Whitelist>(&mut whitelist_container.id, *vector::borrow<ID>(&whitelist_container.elements, vector::length<ID>(&whitelist_container.elements) - 1));
+                        // check not maximum
+                        if (vector::length(&whitelist_element.whitelist_elements) < MAXIMUM_OBJECT_SIZE) {
+                                vector::push_back(&mut whitelist_element.whitelist_elements, WhiteListElement {
+                                        wallet_address : *vector::borrow<address>(&wallets, loop_index),
+                                        limit : *vector::borrow<u64>(&limits, loop_index),
+                                        bought : 0,
 
-                                // get whitelist array
-                                let current_whitelist_array = whitelist_element.whitelist_elements;
-                                let count_current_whitelist_array = vector::length(&current_whitelist_array);
-                                // check not maximum
-                                if (count_current_whitelist_array < MAXIMUM_OBJECT_SIZE) {
-                                        vector::push_back(&mut whitelist_element.whitelist_elements, WhiteListElement {
-                                                wallet_address : *current_wallet,
-                                                limit : *current_limit,
-                                                bought : 0,
+                                });
+                        }else {
+                                // if maximum create new whitelist object
+                                let whitelists = vector::empty();
+                                vector::push_back(&mut whitelists, WhiteListElement {
+                                        wallet_address : *vector::borrow<address>(&wallets, loop_index),
+                                        limit : *vector::borrow<u64>(&limits, loop_index),
+                                        bought : 0,
 
-                                        });
-                                }else {
-                                        // if maximum create new whitelist object
-                                        let whitelists = vector::empty();
-                                        vector::push_back(&mut whitelists, WhiteListElement {
-                                                wallet_address : *current_wallet,
-                                                limit : *current_limit,
-                                                bought : 0,
-
-                                        });
-                                        let new_whitelist = Whitelist {
-                                                id: object::new(ctx),
-                                                whitelist_elements: whitelists,
-                                        };
-                                        // add dynamic field
-                                        let default_whitelist_id = object::id(&new_whitelist);
-                                        vector::push_back(&mut whitelist_container.elements, default_whitelist_id);
-                                        ofield::add(&mut whitelist_container.id, default_whitelist_id, new_whitelist); 
+                                });
+                                let new_whitelist = Whitelist {
+                                        id: object::new(ctx),
+                                        whitelist_elements: whitelists,
                                 };
+                                // add dynamic field
+                                let default_whitelist_id = object::id(&new_whitelist);
+                                vector::push_back(&mut whitelist_container.elements, default_whitelist_id);
+                                ofield::add(&mut whitelist_container.id, default_whitelist_id, new_whitelist); 
                         };
-                        loop_index = loop_index + 1;
+                      
                 };
 
                 let boughts:vector<u64> = vector::empty();
