@@ -247,7 +247,6 @@ module shoshinnft::nft_module{
         limit_minted: u64,
         ctx:&mut TxContext
     ) {
-        assert!(container.total_supply > container.total_minted && container.total_supply - container.total_minted  >= total_supply, EMaximumNFTMinted);
         let sender = sender(ctx);
         //admin only
         assert!(isAdmin(admin, sender) == true, EAdminOnly);
