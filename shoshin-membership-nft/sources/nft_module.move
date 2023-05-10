@@ -29,6 +29,8 @@ module shoshinnft::nft_module{
    const ENotNftOwner:u64 = 8;
    const EMaximunRoundMinted:u64 = 9;
    const EMaximumNFTMinted:u64 = 10;
+
+   const TOTAL_SUPPLY:u64 = 5000;
    
 
     struct Admin has key {
@@ -85,7 +87,6 @@ module shoshinnft::nft_module{
     /*---------------NFT---------------*/
     struct Nft has key,store {
         id: UID,
-        round_id: ID,
         name: String,
         index: u64,
     }
@@ -129,7 +130,7 @@ module shoshinnft::nft_module{
 
         let values = vector[
             utf8(b"{name} #{index}"),
-            utf8(b"Shoshin NFT Membership"),
+            utf8(b"S0 is the NFT membership which launching by Shoshin Square. S0 is the key NFT to privilege, exclusive access at Shoshin ecosystem"),
             utf8(b"https://shoshinsquare.infura-ipfs.io/ipfs/Qme9tCniCjJQk7BpNh63H79j7NDYZt2HsFLR9KUL1ZUtQV"),
             utf8(b"https://shoshinsquare.com"),
             utf8(b"https://shoshinsquare.infura-ipfs.io/ipfs/Qme9tCniCjJQk7BpNh63H79j7NDYZt2HsFLR9KUL1ZUtQV"),
@@ -154,6 +155,16 @@ module shoshinnft::nft_module{
         // Admin,Round objects will be saved on global storage
         // after the smart contract deployment we will get the ID to access it
         transfer::share_object(admin);
+
+
+        // create container 
+        let container = Container{
+            id: object::new(ctx),
+            total_minted: 0,
+            total_supply: TOTAL_SUPPLY,
+        };
+
+        transfer::share_object(container);
 
     }
     
@@ -193,27 +204,6 @@ module shoshinnft::nft_module{
         let money:Balance<SUI> = balance::split(coin::balance_mut(&mut admin.pool), admin.total_pool);
         transfer::public_transfer(coin::from_balance(money, ctx), receive_address);
         admin.total_pool = 0;
-    }
-
-    public entry fun create_container (total_supply: u64, admin:&mut Admin, ctx: &mut TxContext) { 
-        let sender = sender(ctx);
-        //admin only
-        assert!(isAdmin(admin, sender) == true, EAdminOnly);
-
-        let container = Container{
-            id: object::new(ctx),
-            total_minted: 0,
-            total_supply: total_supply,
-        };
-
-        let container_id = object::id(&container);
-
-        //emit event
-        event::emit(CreateContainerEvent{
-            container_id,
-            total_supply
-        });
-        transfer::share_object(container);
     }
 
     public entry fun add_whitelist(admin: &mut Admin, whitelist_container: &mut WhitelistContainer, wallets: vector<address>, limits : vector<u64>, ctx: &mut TxContext) {
@@ -349,10 +339,9 @@ module shoshinnft::nft_module{
         let current_index = container.total_minted;
 
         while(nft_index < amount) {
-            let name = utf8(b"Shoshin NFT");
+            let name = utf8(b"S0 Membership");
             let new_nft = Nft{
                 id: object::new(ctx),
-                round_id: object::id(current_round),
                 name,
                 index: current_index,
             };
@@ -377,6 +366,52 @@ module shoshinnft::nft_module{
         transfer::public_transfer(coin, sender);
         current_round.total_supply = current_round.total_supply - amount;
         current_round.total_minted = current_round.total_minted + amount;
+        container.total_minted = container.total_minted + amount;
+        
+    }
+
+
+    struct AdminMintNft has copy,drop {
+        nft_ids: vector<ID>
+    }
+
+    public entry fun admin_mint_nft (
+        container: &mut Container, 
+        admin: &mut Admin,
+        transfer_to: address,
+        amount: u64,
+        ctx: &mut TxContext
+    ) {
+        let sender = sender(ctx);
+        //admin only
+        assert!(isAdmin(admin, sender) == true, EAdminOnly);
+        // supply
+        assert!(container.total_supply > container.total_minted, EMaximumNFTMinted);
+        assert!(container.total_supply >= amount, EMaximumNFTMinted);
+
+        let nft_index = 0;
+
+        let nft_ids = vector::empty();
+
+        let current_index = container.total_minted;
+
+        while(nft_index < amount) {
+            let name = utf8(b"Shoshin NFT");
+            let new_nft = Nft{
+                id: object::new(ctx),
+                name,
+                index: current_index,
+            };
+            current_index = current_index + 1;
+            vector::push_back(&mut nft_ids, object::id(&new_nft));
+            transfer::public_transfer(new_nft, transfer_to);
+            nft_index = nft_index + 1;
+        };
+
+        event::emit(AdminMintNft{
+            nft_ids
+        });
+
         container.total_minted = container.total_minted + amount;
         
     }
