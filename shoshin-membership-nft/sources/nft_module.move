@@ -312,7 +312,7 @@ module shoshinnft::nft_module{
         // check time condition
         assert!(clock::timestamp_ms(clock) >= current_round.start_time, ERoundDidNotStartedYet);
         assert!(current_round.total_supply >= amount, EMaximunRoundMinted);
-        if (clock::timestamp_ms(clock) >=  current_round.end_time) {
+        if (!current_round.is_public && clock::timestamp_ms(clock) >=  current_round.end_time) {
             abort(ERoundWasEnded)
         };
 
