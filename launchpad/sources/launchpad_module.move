@@ -298,9 +298,6 @@ module shoshinlaunchpad::launchpad_module {
 
        struct DelauchpadEvent has copy, drop {
                 project_id: ID,
-                owner : address,
-                commission : u64,
-                total_pool : u64
         }
 
         /***
@@ -317,29 +314,20 @@ module shoshinlaunchpad::launchpad_module {
         public fun withdraw(
                 launchpad: &mut Launchpad,
                 admin: &mut Admin,
-                commission: u64, 
-                receive_commission_address: address, 
-                owner_receive_address: address, 
+                receive_address: address, 
                 ctx: &mut TxContext
         ) {
                 // check admin
                 let sender = tx_context::sender(ctx);
                 assert!(isAdmin(admin, sender) == true, EAdminOnly);
 
-                // calculation commission
-                let commission_value = launchpad.total_pool * commission / 100;
-                let commission_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut launchpad.pool), commission_value);
-                let revenue_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut launchpad.pool), launchpad.total_pool - commission_value);
+                let revenue_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut launchpad.pool), launchpad.total_pool);
                 // event
                 event::emit(DelauchpadEvent{
                         project_id: object::id(launchpad),
-                        owner : launchpad.owner_address,
-                        commission: commission_value,
-                        total_pool: launchpad.total_pool,
                 });
                 // transfer
-                transfer::public_transfer(coin::from_balance(revenue_balance, ctx), owner_receive_address);
-                transfer::public_transfer(coin::from_balance(commission_balance, ctx), receive_commission_address);
+                transfer::public_transfer(coin::from_balance(revenue_balance, ctx), receive_address);
                 launchpad.total_pool = 0;
         }
 
@@ -357,12 +345,10 @@ module shoshinlaunchpad::launchpad_module {
         public entry fun make_withdraw(
                 launchpad: &mut Launchpad,
                 admin: &mut Admin,
-                commission: u64, 
-                receive_commission_address: address, 
-                owner_receive_address: address, 
+                receive_address: address, 
                 ctx: &mut TxContext
         ) {
-                withdraw(launchpad, admin, commission, receive_commission_address, owner_receive_address, ctx);
+                withdraw(launchpad, admin, receive_address, ctx);
         }
 
         /***
@@ -379,9 +365,8 @@ module shoshinlaunchpad::launchpad_module {
         public entry fun make_delaunchpad<T: store + key>(
                 launchpad: &mut Launchpad,
                 admin: &mut Admin,
-                commission: u64, 
-                receive_commission_address: address, 
-                owner_receive_address: address, 
+                receive_address: address, 
+                receive_nft_address: address,
                 ctx: &mut TxContext
         ) {
                 // check admin
@@ -389,7 +374,7 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(isAdmin(admin, sender) == true, EAdminOnly);
 
                 // withdraw coin
-                withdraw(launchpad, admin, commission, receive_commission_address, owner_receive_address, ctx);
+                withdraw(launchpad, admin, receive_address, ctx);
 
                 // get ID of Whitelist object element
                 let nft_container_ids = launchpad.nft_container_ids;
@@ -407,7 +392,7 @@ module shoshinlaunchpad::launchpad_module {
                         let nft_index = 0;
                         while(nft_index < count_nfts) {
                                 let current_nft = vector::pop_back(&mut container_element.nfts);
-                                transfer::public_transfer(current_nft, owner_receive_address);
+                                transfer::public_transfer(current_nft, receive_nft_address);
                                 nft_index = nft_index + 1;
                         };
                         index = index + 1;
