@@ -441,7 +441,6 @@ module shoshinlaunchpad::launchpad_module {
         */
         public entry fun make_buy_deposit_nft<T: store + key>(whitelist_container: &mut WhitelistContainer ,launchpad: &mut Launchpad, round_id: ID, coin: Coin<SUI>, amount: u64, clock: &Clock, ctx: &mut TxContext) {
                 // check owner
-                assert!(launchpad.owner_address != tx_context::sender(ctx), EWasOwned);
                 assert!(launchpad.is_deposit == true, ENotHavePermistion);
                 // check total supply
                 assert!(launchpad.total_minted < launchpad.total_supply, ENotEnoughNft);
@@ -539,7 +538,6 @@ module shoshinlaunchpad::launchpad_module {
         */
         public entry fun make_buy_public_deposit_nft<T: store + key>(whitelist_container: &mut WhitelistContainer ,launchpad: &mut Launchpad, round_id: ID, coin: Coin<SUI>, amount: u64, clock: &Clock, ctx: &mut TxContext) {
                 // check owner
-                assert!(launchpad.owner_address != tx_context::sender(ctx), EWasOwned);
                 assert!(launchpad.is_deposit == true, ENotHavePermistion);
                 // check total supply
                 assert!(launchpad.total_minted < launchpad.total_supply, ENotEnoughNft);
@@ -653,7 +651,6 @@ module shoshinlaunchpad::launchpad_module {
         */
         public entry fun make_buy_mint_nft<T: store + key>(whitelist_container: &mut WhitelistContainer, launchpad: &mut Launchpad, round_id: ID, coin: Coin<SUI>, amount: u64, clock: &Clock, ctx: &mut TxContext) {
                 // check owner
-                assert!(launchpad.owner_address != tx_context::sender(ctx), EWasOwned);
                 assert!(launchpad.is_deposit == false, ENotHavePermistion);
                 // check total supply
                 assert!(launchpad.total_minted < launchpad.total_supply, ENotEnoughNft);
@@ -710,7 +707,6 @@ module shoshinlaunchpad::launchpad_module {
         */
         public entry fun make_buy_public_mint_nft<T: store + key>(whitelist_container: &mut WhitelistContainer, launchpad: &mut Launchpad, round_id: ID, coin: Coin<SUI>, amount: u64, clock: &Clock, ctx: &mut TxContext) {
                 // check owner
-                assert!(launchpad.owner_address != tx_context::sender(ctx), EWasOwned);
                 assert!(launchpad.is_deposit == false, ENotHavePermistion);
                 // check total supply
                 assert!(launchpad.total_minted < launchpad.total_supply, ENotEnoughNft);
