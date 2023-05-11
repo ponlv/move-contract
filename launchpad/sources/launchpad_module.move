@@ -444,7 +444,7 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(launchpad.owner_address != tx_context::sender(ctx), EWasOwned);
                 assert!(launchpad.is_deposit == true, ENotHavePermistion);
                 // check total supply
-                assert!(launchpad.total_supply > 0, ENotEnoughNft);
+                assert!(launchpad.total_minted < launchpad.total_supply, ENotEnoughNft);
 
                 // get ID of Whitelist object element
                 let nft_container_ids = launchpad.nft_container_ids;
@@ -487,7 +487,12 @@ module shoshinlaunchpad::launchpad_module {
                 // get current round
                 let current_round = ofield::borrow_mut<ID,Round>(&mut launchpad.id, round_id);
                 // limit by round
-                assert!(current_round.total_supply >= amount, ENotEnoughNft);
+                // limit by round
+                if(current_round.total_supply == 0) {
+                        assert!(launchpad.total_supply >= launchpad.total_minted + amount, ENotEnoughNft);
+                } else {
+                        assert!(current_round.total_supply >= current_round.total_minted + amount, ENotEnoughNft);
+                };
                 // check public round
                 assert!(current_round.limit_mint == 0, EIsRoundPublic);
                 // check close
@@ -500,10 +505,8 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(current_time < current_round.end_time, ETooLateToBuy);
                 // push coin to pool
 
-                launchpad.total_supply = launchpad.total_supply - amount; 
                 launchpad.total_minted = launchpad.total_minted + amount;
                 launchpad.total_pool = launchpad.total_pool + current_round.price * amount;
-                current_round.total_supply = current_round.total_supply - amount;
                 current_round.total_minted = current_round.total_minted + amount;
 
                 // emit event
@@ -539,7 +542,7 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(launchpad.owner_address != tx_context::sender(ctx), EWasOwned);
                 assert!(launchpad.is_deposit == true, ENotHavePermistion);
                 // check total supply
-                assert!(launchpad.total_supply > 0, ENotEnoughNft);
+                assert!(launchpad.total_minted < launchpad.total_supply, ENotEnoughNft);
                 // get ID of Whitelist object element
                 let nft_container_ids = launchpad.nft_container_ids;
                 // loop container nft array
@@ -582,7 +585,12 @@ module shoshinlaunchpad::launchpad_module {
                 // get current round
                 let current_round = ofield::borrow_mut<ID,Round>(&mut launchpad.id, round_id);
                 // limit by round
-                assert!(current_round.total_supply >= amount, ENotEnoughNft);
+                // limit by round
+                if(current_round.total_supply == 0) {
+                        assert!(launchpad.total_supply >= launchpad.total_minted + amount, ENotEnoughNft);
+                } else {
+                        assert!(current_round.total_supply >= current_round.total_minted + amount, ENotEnoughNft);
+                };
                 // check public round
                 assert!(current_round.limit_mint != 0, ERoundNotPublic);
                 // check close
@@ -605,10 +613,8 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
                 assert!(current_time < current_round.end_time, ETooLateToBuy);
 
-                launchpad.total_supply = launchpad.total_supply - amount; 
                 launchpad.total_minted = launchpad.total_minted + amount;
                 launchpad.total_pool = launchpad.total_pool + current_round.price * amount;
-                current_round.total_supply = current_round.total_supply - amount;
                 current_round.total_minted = current_round.total_minted + amount;
                 // emit event
                 event::emit(BuyWithDepositNftEvent{
@@ -650,14 +656,18 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(launchpad.owner_address != tx_context::sender(ctx), EWasOwned);
                 assert!(launchpad.is_deposit == false, ENotHavePermistion);
                 // check total supply
-                assert!(launchpad.total_supply > 0, ENotEnoughNft);
+                assert!(launchpad.total_minted < launchpad.total_supply, ENotEnoughNft);
 
                 let project_id = object::id(launchpad);
 
                 // get current round
                 let current_round = ofield::borrow_mut<ID,Round>(&mut launchpad.id, round_id);
                 // limit by round
-                assert!(current_round.total_supply >= amount, ENotEnoughNft);
+                if(current_round.total_supply == 0) {
+                        assert!(launchpad.total_supply >= amount, ENotEnoughNft);
+                } else {
+                        assert!(current_round.total_supply >= amount, ENotEnoughNft);
+                };
                 // check public round
                 assert!(current_round.limit_mint == 0, EIsRoundPublic);
                 // check close
@@ -676,10 +686,8 @@ module shoshinlaunchpad::launchpad_module {
                         buyer: tx_context::sender(ctx),
                         amount,
                 });
-                launchpad.total_supply = launchpad.total_supply - amount; 
                 launchpad.total_minted = launchpad.total_minted + amount;
                 launchpad.total_pool = launchpad.total_pool + current_round.price * amount;
-                current_round.total_supply = current_round.total_supply - amount;
                 current_round.total_minted = current_round.total_minted + amount;
 
                 // push coin to pool
@@ -705,14 +713,18 @@ module shoshinlaunchpad::launchpad_module {
                 assert!(launchpad.owner_address != tx_context::sender(ctx), EWasOwned);
                 assert!(launchpad.is_deposit == false, ENotHavePermistion);
                 // check total supply
-                assert!(launchpad.total_supply > 0, ENotEnoughNft);
+                assert!(launchpad.total_minted < launchpad.total_supply, ENotEnoughNft);
 
                 let project_id = object::id(launchpad);
 
                 // get current round
                 let current_round = ofield::borrow_mut<ID,Round>(&mut launchpad.id, round_id);
                 // limit by round
-                assert!(current_round.total_supply >= amount, ENotEnoughNft);
+                if(current_round.total_supply == 0) {
+                        assert!(launchpad.total_supply >= launchpad.total_minted + amount, ENotEnoughNft);
+                } else {
+                        assert!(current_round.total_supply >= current_round.total_minted + amount, ENotEnoughNft);
+                };
                 // check close
                 assert!(current_round.status == true, ERoundClosed);
                 // check public round
@@ -742,12 +754,9 @@ module shoshinlaunchpad::launchpad_module {
                         buyer: tx_context::sender(ctx),
                         amount
                 });
-                launchpad.total_supply = launchpad.total_supply - amount; 
-                launchpad.total_supply = launchpad.total_supply - amount; 
                 launchpad.total_minted = launchpad.total_minted + amount;
-                launchpad.total_pool = launchpad.total_pool + current_round.price * amount;
-                current_round.total_supply = current_round.total_supply - amount;
                 current_round.total_minted = current_round.total_minted + amount;
+                launchpad.total_pool = launchpad.total_pool + current_round.price * amount;
                 // push coin to pool
                 let price_balance:Balance<SUI> = balance::split(coin::balance_mut(&mut coin), current_round.price * amount);
                 coin::join(&mut launchpad.pool, coin::from_balance(price_balance, ctx));
@@ -851,8 +860,6 @@ module shoshinlaunchpad::launchpad_module {
                 project_id: ID,
                 round_id : ID,
         }
-
-
 
         /***
         * @dev make_update_round_whitelist
