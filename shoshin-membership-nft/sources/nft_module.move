@@ -395,7 +395,7 @@ module shoshinnft::nft_module{
         let current_index = container.total_minted;
 
         while(nft_index < amount) {
-            let name = utf8(b"Shoshin NFT");
+            let name = utf8(b"S0 Membership");
             let new_nft = Nft{
                 id: object::new(ctx),
                 name,
