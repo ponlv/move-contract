@@ -912,7 +912,7 @@ module shoshinlaunchpad::launchpad_module {
 
                 assert!(launchpad.is_deposit == true, ENotHavePermistion);
                 // check total supply
-                assert!(launchpad.total_supply > 0, ENotEnoughNft);
+                assert!(launchpad.total_supply >= launchpad.total_minted + amount, ENotEnoughNft);
                 // get ID of Whitelist object element
                 let nft_container_ids = launchpad.nft_container_ids;
                 // loop container nft array
@@ -935,6 +935,10 @@ module shoshinlaunchpad::launchpad_module {
                                         break
                                 }
                         };
+                        
+                        if (is_stop == amount) {
+                                break
+                        }
                         index = index + 1;
                 };
                 
