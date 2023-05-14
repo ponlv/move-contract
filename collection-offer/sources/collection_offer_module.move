@@ -82,6 +82,13 @@ module shoshinwcollectionoffer::collection_offer_module{
                 };
 
 
+                vector::push_back(&mut collectionOffer.containers, Status{
+                        id: object::id(&container),
+                        can_deposit: true
+                });
+
+
+
                 transfer::share_object(container);
                 transfer::share_object(admin);
                 transfer::share_object(collectionOffer)
@@ -222,6 +229,7 @@ module shoshinwcollectionoffer::collection_offer_module{
                 total_item_offer: u64,
                 price_per_item: u64,
                 duration: u64,
+                collection: TypeName
         }
 
         /***
@@ -266,6 +274,7 @@ module shoshinwcollectionoffer::collection_offer_module{
                                 total_item_offer,
                                 price_per_item,
                                 duration,
+                                collection: type_name::get<T>(),
                         });
 
                         ofield::add(&mut new_container.id, object::id(&collectionOfferPool), collectionOfferPool);
@@ -291,6 +300,7 @@ module shoshinwcollectionoffer::collection_offer_module{
                                 total_item_offer,
                                 price_per_item,
                                 duration,
+                                collection: type_name::get<T>(),
                         });
                         // check full
                         if(container.count + 1 == collectionOffer.container_maximum_size) {
@@ -304,6 +314,7 @@ module shoshinwcollectionoffer::collection_offer_module{
 
         struct CancelOfferEvent has copy, drop {
                 collection_offer_id: ID,
+                collection: TypeName,
         }
 
 
@@ -346,6 +357,7 @@ module shoshinwcollectionoffer::collection_offer_module{
 
                 event::emit(CancelOfferEvent{
                         collection_offer_id,
+                        collection: type_name::get<T>(),
                 })
         }
 
@@ -380,6 +392,7 @@ module shoshinwcollectionoffer::collection_offer_module{
                 nft_id: ID,
                 accepter: address,
                 price: u64,
+                collection: TypeName,
         }
 
         /***
@@ -429,6 +442,7 @@ module shoshinwcollectionoffer::collection_offer_module{
                                 nft_id: object::id(&item),
                                 accepter: sender,
                                 price: *price_per_item,
+                                collection: type_name::get<T>(),
                         });
 
                         let (result_address, result) = collection_fee_module::get_creator_fee(fee_container, string::from_ascii(type_name::into_string(type_name::get<T>())), *price_per_item, ctx);
@@ -471,6 +485,7 @@ module shoshinwcollectionoffer::collection_offer_module{
                                 nft_id: object::id(&item),
                                 accepter: sender,
                                 price: price_per_item,
+                                collection: type_name::get<T>(),
                         });
 
                         let (result_address, result) = collection_fee_module::get_creator_fee(fee_container, string::from_ascii(type_name::into_string(type_name::get<T>())), price_per_item, ctx);
@@ -549,6 +564,7 @@ module shoshinwcollectionoffer::collection_offer_module{
 
                 event::emit(CancelOfferEvent{
                         collection_offer_id,
+                        collection: type_name::get<T>(),
                 })
         }
 
