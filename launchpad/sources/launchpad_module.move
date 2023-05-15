@@ -485,7 +485,11 @@ module shoshinlaunchpad::launchpad_module {
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
-                assert!(current_round.end_time != 0 && current_time < current_round.end_time, ETooLateToBuy);
+
+
+                if(current_round.end_time != 0) {
+                        assert!(current_time < current_round.end_time, ETooLateToBuy);
+                };
                 // push coin to pool
 
                 launchpad.total_minted = launchpad.total_minted + amount;
@@ -593,7 +597,10 @@ module shoshinlaunchpad::launchpad_module {
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
-                assert!(current_round.end_time != 0 && current_time < current_round.end_time, ETooLateToBuy);
+
+                if(current_round.end_time != 0) {
+                        assert!(current_time < current_round.end_time, ETooLateToBuy);
+                };
 
                 launchpad.total_minted = launchpad.total_minted + amount;
                 launchpad.total_pool = launchpad.total_pool + current_round.price * amount;
@@ -658,7 +665,11 @@ module shoshinlaunchpad::launchpad_module {
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
-                assert!(current_round.end_time != 0 && current_time < current_round.end_time, ETooLateToBuy);
+
+                if(current_round.end_time != 0) {
+                        assert!(current_time < current_round.end_time, ETooLateToBuy);
+                };
+
                 // emit event
                 event::emit(BuyWithMintNftEvent{
                         project_id,
@@ -725,7 +736,10 @@ module shoshinlaunchpad::launchpad_module {
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
-                assert!(current_round.end_time != 0 && current_time < current_round.end_time, ETooLateToBuy);
+
+                if(current_round.end_time != 0) {
+                        assert!(current_time < current_round.end_time, ETooLateToBuy);
+                };
                 // emit event
                 event::emit(BuyWithMintNftEvent{
                         project_id,
