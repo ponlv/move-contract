@@ -364,22 +364,23 @@ module shoshinlaunchpad::launchpad_module {
         public entry fun make_delaunchpad<T: store + key>(
                 launchpad: &mut Launchpad,
                 admin: &mut Admin,
-                receive_address: address, 
                 receive_nft_address: address,
+                amount: u64,
                 ctx: &mut TxContext
         ) {
                 // check admin
                 let sender = tx_context::sender(ctx);
                 assert!(isAdmin(admin, sender) == true, EAdminOnly);
 
-                // withdraw coin
-                withdraw(launchpad, admin, receive_address, ctx);
-
                 // get ID of Whitelist object element
                 let nft_container_ids = launchpad.nft_container_ids;
                 // loop container nft array
                 let index = 0;
+
                 let count_nft_container_ids = vector::length<ID>(&nft_container_ids);
+                let is_stop = false;
+                let count = 0;
+
                 while(index < count_nft_container_ids) {
                         // get current id
                         let current_container_id = vector::borrow<ID>(&nft_container_ids, index);
@@ -387,16 +388,23 @@ module shoshinlaunchpad::launchpad_module {
                         let container_element = ofield::borrow_mut<ID, NFTContainer<T>>(&mut launchpad.id, *current_container_id);
                         // loop in nft array
                         let count_nfts = vector::length(&container_element.nfts);
-
-                        let nft_index = 0;
-                        while(nft_index < count_nfts) {
+                        while(count < amount && count_nfts > 0) {
+                                // send nft
                                 let current_nft = vector::pop_back(&mut container_element.nfts);
                                 transfer::public_transfer(current_nft, receive_nft_address);
-                                nft_index = nft_index + 1;
+                                count = count + 1;
+
+                                if(count == amount) {
+                                        is_stop = true;
+                                        break
+                                };
+                        };
+
+                        if (is_stop == true) {
+                                break
                         };
                         index = index + 1;
                 };
-                launchpad.total_supply = 0;
 
         }
 
