@@ -281,14 +281,13 @@ module shoshinlaunchpad::launchpad_module {
         */
         // public entry fun make_batch_deposit<T: key + store>(
         //         launchpad: &mut Launchpad,
-        //         admin:&mut Admin,
         //         nfts: vector<T>,
         //         ctx: &mut TxContext
         // ) {
         //         let length = vector::length(&nfts);
         //         let index = 0;
         //         while(index < length) {
-        //                 deposit<T>(launchpad, admin, vector::pop_back(&mut nfts), ctx);
+        //                 deposit<T>(launchpad, vector::pop_back(&mut nfts), ctx);
         //                 index = index + 1;
         //         };
         //         vector::destroy_empty(nfts);
@@ -486,7 +485,7 @@ module shoshinlaunchpad::launchpad_module {
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
-                assert!(current_time < current_round.end_time, ETooLateToBuy);
+                assert!(current_round.end_time != 0 && current_time < current_round.end_time, ETooLateToBuy);
                 // push coin to pool
 
                 launchpad.total_minted = launchpad.total_minted + amount;
@@ -594,7 +593,7 @@ module shoshinlaunchpad::launchpad_module {
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
-                assert!(current_time < current_round.end_time, ETooLateToBuy);
+                assert!(current_round.end_time != 0 && current_time < current_round.end_time, ETooLateToBuy);
 
                 launchpad.total_minted = launchpad.total_minted + amount;
                 launchpad.total_pool = launchpad.total_pool + current_round.price * amount;
@@ -659,7 +658,7 @@ module shoshinlaunchpad::launchpad_module {
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
-                assert!(current_time < current_round.end_time, ETooLateToBuy);
+                assert!(current_round.end_time != 0 && current_time < current_round.end_time, ETooLateToBuy);
                 // emit event
                 event::emit(BuyWithMintNftEvent{
                         project_id,
@@ -726,7 +725,7 @@ module shoshinlaunchpad::launchpad_module {
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
-                assert!(current_time < current_round.end_time, ETooLateToBuy);
+                assert!(current_round.end_time != 0 && current_time < current_round.end_time, ETooLateToBuy);
                 // emit event
                 event::emit(BuyWithMintNftEvent{
                         project_id,
@@ -938,7 +937,7 @@ module shoshinlaunchpad::launchpad_module {
                         
                         if (is_stop == amount) {
                                 break
-                        }
+                        };
                         index = index + 1;
                 };
                 
