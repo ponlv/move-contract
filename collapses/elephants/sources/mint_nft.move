@@ -194,18 +194,16 @@ module nft::nft{
     */
     public entry fun mint(
         admin: &mut Admin, 
-        container: &mut Container, 
+        container: &mut Container,
+        image_url: String,
+        project_url: String,
+        creator: String,
+        description: String,
+        name: String,
         transfer_to : address, 
         mint_amount: u64,  
         ctx: &mut TxContext
     ) {
-        // fixed information
-        let image_url = utf8(b"https://i.pinimg.com/564x/63/9f/d6/639fd6b419ef3a7051a7b0b60f44f5a0.jpg"); 
-        let project_url = utf8(b"https://shoshinsquare.com"); 
-        let creator = utf8(b"Shoshin Square"); 
-        let description = utf8(b"The Nezuko NFT"); 
-        let name = utf8(b"Nezuko"); 
-
         let sender = sender(ctx);
         let minters = &mut container.minters;
         let minters_length = vector::length(minters);
