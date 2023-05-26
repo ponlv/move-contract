@@ -1,16 +1,14 @@
 module nft::nft{
     use shoshinlaunchpad::launchpad_module::{Self,Launchpad};
-    use nft::attribute_module::{Self,AttributeContainer};
     use sui::tx_context::{TxContext,sender};
     use std::string::{Self,String,utf8};
     use sui::package;
     use sui::display;
     use sui::url::{Self, Url};
-    use sui::object::{Self, ID, UID};
+    use sui::object::{Self, UID};
     use sui::transfer;
     use std::vector;
     use sui::event;
-    use sui::vec_map::{Self, VecMap};
 
 
     //constant
@@ -31,7 +29,6 @@ module nft::nft{
         creator: String,
         description: String,
         name: String,
-        attributes: VecMap<String, String>,
         index: u64
     }
 
@@ -39,10 +36,7 @@ module nft::nft{
         id: UID,
         admin_address : address,
         minters : vector<address>,
-        is_magic_enable: bool,
-        attribute_container_id : ID,
         total_minted: u64,
-        total_magic: u64,
     }
 
     struct NFT has drop {}
@@ -54,16 +48,11 @@ module nft::nft{
             address: sender(ctx),           
         };
 
-        let attribute_container_id = attribute_module::create_attribute_container(ctx);
-
         let container = Container {
             id: object::new(ctx),
             minters: vector::empty(),
             admin_address: admin.address,
-            is_magic_enable: false,
-            attribute_container_id,
             total_minted: 0,
-            total_magic: 0,
         };
 
         let keys = vector[
@@ -109,12 +98,11 @@ module nft::nft{
     * @param minter is minter address
     * 
     */
-    public entry fun transfer_admin(admin: &mut Admin, attribute_container: &mut AttributeContainer, new_admin: address, ctx: &mut TxContext) {
+    public entry fun transfer_admin(admin: &mut Admin, new_admin: address, ctx: &mut TxContext) {
         let sender = sender(ctx);
         // check admin
         assert!(sender == admin.address,EAdminOnly);
         admin.address = new_admin;
-        attribute_module::change_admin_address(attribute_container, new_admin, ctx);
     }
 
 
@@ -206,18 +194,16 @@ module nft::nft{
     */
     public entry fun mint(
         admin: &mut Admin, 
-        container: &mut Container, 
+        container: &mut Container,
+        image_url: String,
+        project_url: String,
+        creator: String,
+        description: String,
+        name: String,
         transfer_to : address, 
         mint_amount: u64,  
         ctx: &mut TxContext
     ) {
-        // fixed information
-        let image_url = utf8(b"https://i.pinimg.com/564x/63/9f/d6/639fd6b419ef3a7051a7b0b60f44f5a0.jpg"); 
-        let project_url = utf8(b"https://shoshinsquare.com"); 
-        let creator = utf8(b"Shoshin Square"); 
-        let description = utf8(b"The Nezuko NFT"); 
-        let name = utf8(b"Nezuko"); 
-
         let sender = sender(ctx);
         let minters = &mut container.minters;
         let minters_length = vector::length(minters);
@@ -246,7 +232,6 @@ module nft::nft{
                 description,
                 name,
                 index: current_index,
-                attributes: vec_map::empty()
             };
             current_index = current_index + 1;
             amount = amount + 1;
@@ -298,7 +283,6 @@ module nft::nft{
                 description,
                 name,
                 index: current_index,
-                attributes: vec_map::empty()
             };
             current_index = current_index + 1;
             amount = amount + 1;
@@ -310,74 +294,5 @@ module nft::nft{
     }
 
 
-    struct ChangeMagicEnableEvent has copy, drop {
-        container : ID,
-        is_magic_enable : bool,
-    }
 
-
-    /***
-    * @dev change_is_magic_enable
-    *
-    *
-    * @param admin admin id
-    * @param container container id
-    * @param is_magic_enable status of magic action
-    * 
-    */
-    public entry fun change_is_magic_enable(admin: &mut Admin, container: &mut Container, is_magic_enable: bool, ctx: &mut TxContext) {
-        let sender = sender(ctx);
-        // check admin
-        assert!(sender == admin.address,EAdminOnly);
-        container.is_magic_enable = is_magic_enable;
-
-        event::emit(ChangeMagicEnableEvent{
-            container: object::id(container),
-            is_magic_enable: is_magic_enable,
-        });
-    }
-
-    struct MagicEvent has copy, drop {
-        nft_id : ID,
-        attributes : VecMap<String, String>,
-    }
-
-    /***
-    * @dev magic
-    *
-    *
-    * @param container container id
-    * @param attribute_container where attibute will pop
-    * @param nft current nft id
-    * 
-    */
-    public entry fun magic(container: &mut Container, attribute_container: &mut AttributeContainer, nft: &mut Nft, _: &mut TxContext) {
-        assert!(container.is_magic_enable == true, EMagicNotEnable);
-        let attributes = attribute_module::pop_attributes(attribute_container);
-        let ( _ , value ) = vec_map::remove<String, String>(&mut attributes, &utf8(b"image_url"));
-        nft.url = url::new_unsafe(string::to_ascii(value));
-        nft.attributes = attributes;
-        container.total_magic = container.total_magic + 1;
-
-        event::emit(MagicEvent{
-            nft_id: object::id(nft),
-            attributes: attributes,
-        });
-    }
-    /***
-    * @dev push_attributes
-    *
-    *
-    * @param admin admin id
-    * @param attribute_container where attibute will pop
-    * @param attribute_keys key mus incude image_url
-    * @param attribute_values value of keys
-    * 
-    */
-    public entry fun push_attributes(admin:& Admin, attribute_container: &mut AttributeContainer, attribute_keys: vector<vector<String>>, attribute_values: vector<vector<String>>, ctx: &mut TxContext) {
-        let sender = sender(ctx);
-        // check admin
-        assert!(sender == admin.address,EAdminOnly);
-        attribute_module::push_attributes(attribute_container, attribute_keys, attribute_values, ctx);
-    }
 }

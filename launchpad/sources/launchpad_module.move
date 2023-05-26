@@ -281,14 +281,13 @@ module shoshinlaunchpad::launchpad_module {
         */
         // public entry fun make_batch_deposit<T: key + store>(
         //         launchpad: &mut Launchpad,
-        //         admin:&mut Admin,
         //         nfts: vector<T>,
         //         ctx: &mut TxContext
         // ) {
         //         let length = vector::length(&nfts);
         //         let index = 0;
         //         while(index < length) {
-        //                 deposit<T>(launchpad, admin, vector::pop_back(&mut nfts), ctx);
+        //                 deposit<T>(launchpad, vector::pop_back(&mut nfts), ctx);
         //                 index = index + 1;
         //         };
         //         vector::destroy_empty(nfts);
@@ -365,22 +364,23 @@ module shoshinlaunchpad::launchpad_module {
         public entry fun make_delaunchpad<T: store + key>(
                 launchpad: &mut Launchpad,
                 admin: &mut Admin,
-                receive_address: address, 
                 receive_nft_address: address,
+                amount: u64,
                 ctx: &mut TxContext
         ) {
                 // check admin
                 let sender = tx_context::sender(ctx);
                 assert!(isAdmin(admin, sender) == true, EAdminOnly);
 
-                // withdraw coin
-                withdraw(launchpad, admin, receive_address, ctx);
-
                 // get ID of Whitelist object element
                 let nft_container_ids = launchpad.nft_container_ids;
                 // loop container nft array
                 let index = 0;
+
                 let count_nft_container_ids = vector::length<ID>(&nft_container_ids);
+                let is_stop = false;
+                let count = 0;
+
                 while(index < count_nft_container_ids) {
                         // get current id
                         let current_container_id = vector::borrow<ID>(&nft_container_ids, index);
@@ -388,16 +388,23 @@ module shoshinlaunchpad::launchpad_module {
                         let container_element = ofield::borrow_mut<ID, NFTContainer<T>>(&mut launchpad.id, *current_container_id);
                         // loop in nft array
                         let count_nfts = vector::length(&container_element.nfts);
-
-                        let nft_index = 0;
-                        while(nft_index < count_nfts) {
+                        while(count < amount && count_nfts > 0) {
+                                // send nft
                                 let current_nft = vector::pop_back(&mut container_element.nfts);
                                 transfer::public_transfer(current_nft, receive_nft_address);
-                                nft_index = nft_index + 1;
+                                count = count + 1;
+
+                                if(count == amount) {
+                                        is_stop = true;
+                                        break
+                                };
+                        };
+
+                        if (is_stop == true) {
+                                break
                         };
                         index = index + 1;
                 };
-                launchpad.total_supply = 0;
 
         }
 
@@ -486,7 +493,11 @@ module shoshinlaunchpad::launchpad_module {
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
-                assert!(current_time < current_round.end_time, ETooLateToBuy);
+
+
+                if(current_round.end_time != 0) {
+                        assert!(current_time < current_round.end_time, ETooLateToBuy);
+                };
                 // push coin to pool
 
                 launchpad.total_minted = launchpad.total_minted + amount;
@@ -594,7 +605,10 @@ module shoshinlaunchpad::launchpad_module {
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
-                assert!(current_time < current_round.end_time, ETooLateToBuy);
+
+                if(current_round.end_time != 0) {
+                        assert!(current_time < current_round.end_time, ETooLateToBuy);
+                };
 
                 launchpad.total_minted = launchpad.total_minted + amount;
                 launchpad.total_pool = launchpad.total_pool + current_round.price * amount;
@@ -659,7 +673,11 @@ module shoshinlaunchpad::launchpad_module {
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
-                assert!(current_time < current_round.end_time, ETooLateToBuy);
+
+                if(current_round.end_time != 0) {
+                        assert!(current_time < current_round.end_time, ETooLateToBuy);
+                };
+
                 // emit event
                 event::emit(BuyWithMintNftEvent{
                         project_id,
@@ -726,7 +744,10 @@ module shoshinlaunchpad::launchpad_module {
                 // check valid time
                 let current_time = clock::timestamp_ms(clock);
                 assert!(current_time > current_round.start_time, ETooSoonToBuy);
-                assert!(current_time < current_round.end_time, ETooLateToBuy);
+
+                if(current_round.end_time != 0) {
+                        assert!(current_time < current_round.end_time, ETooLateToBuy);
+                };
                 // emit event
                 event::emit(BuyWithMintNftEvent{
                         project_id,
@@ -912,7 +933,7 @@ module shoshinlaunchpad::launchpad_module {
 
                 assert!(launchpad.is_deposit == true, ENotHavePermistion);
                 // check total supply
-                assert!(launchpad.total_supply > 0, ENotEnoughNft);
+                assert!(launchpad.total_supply >= launchpad.total_minted + amount, ENotEnoughNft);
                 // get ID of Whitelist object element
                 let nft_container_ids = launchpad.nft_container_ids;
                 // loop container nft array
@@ -934,6 +955,10 @@ module shoshinlaunchpad::launchpad_module {
                                 if (is_stop == amount) {
                                         break
                                 }
+                        };
+                        
+                        if (is_stop == amount) {
+                                break
                         };
                         index = index + 1;
                 };
